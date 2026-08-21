@@ -2,57 +2,55 @@ package com.example.clareza.ai
 
 import com.example.clareza.ai.model.AIRequest
 import com.example.clareza.ai.model.AIResponse
-import com.example.clareza.ai.model.AISuggestedAction
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import com.example.clareza.ai.runtime.LLMRuntime
+import com.example.clareza.ai.runtime.LocalLLMRuntime
+import com.example.clareza.ai.runtime.ModelMemoryPolicy
 import java.io.File
-import java.util.regex.Pattern
 
 /**
  * Provedor para execução de Modelo de Linguagem Local (LLM Offline ex: GGUF / ONNX / MediaPipe LLM Inference).
  *
  * Funciona de forma totalmente privada e offline no dispositivo do usuário.
- * Caso nenhum arquivo de modelo esteja importado ou carregado, executa um fallback transparente
- * para o [RuleBasedOfflineProvider].
+ * Gerencia a alocação de memória RAM e recorre ao [RuleBasedOfflineProvider] caso nenhum modelo esteja alocado.
  */
 class OfflineLLMProvider(
+    private val runtime: LLMRuntime = LocalLLMRuntime(),
     private val ruleBasedFallback: RuleBasedOfflineProvider = RuleBasedOfflineProvider()
 ) : AIProvider {
 
-    override val name: String = "Motor LLM Local Offline"
-
-    private var loadedModelFile: File? = null
-    private var isModelLoaded: Boolean = false
+    override val name: String = "Motor LLM Local Offline (${runtime.runtimeName})"
 
     override val isAvailable: Boolean
-        get() = isModelLoaded && loadedModelFile?.exists() == true
+        get() = runtime.isLoaded
 
     override val isOffline: Boolean = true
 
     /**
-     * Tenta carregar um modelo local no caminho especificado (ex: arquivo GGUF ou modelo pré-instalado).
+     * Valida o arquivo do modelo antes de efetuar o carregamento na memória RAM.
      */
-    fun loadModel(modelFile: File): Boolean {
-        return if (modelFile.exists() && modelFile.length() > 0) {
-            this.loadedModelFile = modelFile
-            this.isModelLoaded = true
-            true
-        } else {
-            this.isModelLoaded = false
-            false
-        }
+    fun validateModelFile(modelFile: File): Boolean {
+        return runtime.validateModelFile(modelFile)
     }
 
     /**
-     * Descarrega o modelo da memória RAM/VRAM do dispositivo para economizar recursos.
+     * Tenta carregar o modelo na memória RAM do dispositivo.
      */
-    fun unloadModel() {
-        this.loadedModelFile = null
-        this.isModelLoaded = false
+    suspend fun loadModel(modelFile: File): Boolean {
+        return runtime.loadModel(modelFile).isSuccess
     }
 
-    fun getActiveModelName(): String? = loadedModelFile?.name
+    /**
+     * Descarrega o modelo da memória RAM/VRAM para economizar recursos no dispositivo.
+     */
+    suspend fun unloadModel() {
+        runtime.unloadModel()
+    }
+
+    fun setMemoryPolicy(policy: ModelMemoryPolicy) {
+        runtime.memoryPolicy = policy
+    }
+
+    fun getActiveModelName(): String? = runtime.loadedModelFile?.name
 
     override suspend fun generateResponse(
         prompt: String,
@@ -60,78 +58,35 @@ class OfflineLLMProvider(
     ): AIResponse {
         val startTime = System.currentTimeMillis()
 
-        // Se o modelo LLM não estiver carregado, recorre ao motor determinístico de regras
+        // Se o modelo LLM não estiver carregado na RAM, utiliza o motor determinístico de regras como fallback
         if (!isAvailable) {
-            val fallbackResponse = ruleBasedFallback.generateResponse(prompt, request)
-            return fallbackResponse.copy(
-                text = fallbackResponse.text
-            )
+            return ruleBasedFallback.generateResponse(prompt, request)
         }
 
-        // Execução no Runtime de LLM Local (quando modelo está carregado)
+        // Execução no Runtime de LLM Local
         return try {
-            val llmOutputText = executeLocalLLMInference(prompt)
-            val suggestedAction = extractActionFromLLMOutput(llmOutputText)
-            val latency = System.currentTimeMillis() - startTime
+            val inferenceResult = runtime.generateInference(prompt)
+            if (inferenceResult.isSuccess) {
+                val llmOutputText = inferenceResult.getOrThrow()
+                val suggestedAction = AIActionParser.extractActionFromText(llmOutputText)
+                val latency = System.currentTimeMillis() - startTime
 
-            AIResponse(
-                text = llmOutputText,
-                suggestedAction = suggestedAction,
-                isOffline = true,
-                latencyMs = latency
-            )
+                AIResponse(
+                    text = llmOutputText,
+                    suggestedAction = suggestedAction,
+                    isOffline = true,
+                    latencyMs = latency
+                )
+            } else {
+                val fallbackResponse = ruleBasedFallback.generateResponse(prompt, request)
+                val latency = System.currentTimeMillis() - startTime
+                fallbackResponse.copy(latencyMs = latency)
+            }
         } catch (e: Exception) {
-            // Em caso de falha de memória ou execução do LLM, aciona o fallback gracioso
+            // Em caso de falha de memória ou erro do runtime nativo, aciona o fallback com segurança
             val fallbackResponse = ruleBasedFallback.generateResponse(prompt, request)
             val latency = System.currentTimeMillis() - startTime
-            fallbackResponse.copy(
-                latencyMs = latency
-            )
+            fallbackResponse.copy(latencyMs = latency)
         }
-    }
-
-    /**
-     * Ponto de integração com o Runtime NATIVO do LLM Local (ex: llama.cpp JNI / MediaPipe LLM / ONNX Runtime).
-     */
-    private suspend fun executeLocalLLMInference(prompt: String): String {
-        // Implementação do invólucro do runtime nativo
-        // Em tempo de execução, recebe o prompt do AIContextBuilder e retorna a inferência gerada pelo modelo local.
-        return "Processado localmente via modelo LLM: ${loadedModelFile?.name}"
-    }
-
-    private fun extractActionFromLLMOutput(llmText: String): AISuggestedAction? {
-        val jsonPattern = Pattern.compile("```(?:json)?\\s*(\\{.*?\\})\\s*```", Pattern.DOTALL)
-        val matcher = jsonPattern.matcher(llmText)
-        if (matcher.find()) {
-            val jsonStr = matcher.group(1) ?: return null
-            return try {
-                val jsonElement = Json { ignoreUnknownKeys = true; isLenient = true }.parseToJsonElement(jsonStr).jsonObject
-                val actionTypeStr = jsonElement["action"]?.jsonPrimitive?.content
-                if (actionTypeStr == "CREATE_TRANSACTION") {
-                    val amt = jsonElement["amount"]?.jsonPrimitive?.content?.toDoubleOrNull() ?: 0.0
-                    val desc = jsonElement["description"]?.jsonPrimitive?.content ?: "Lançamento"
-                    val bucket = jsonElement["bucket"]?.jsonPrimitive?.content ?: "Necessidades"
-                    val category = jsonElement["category"]?.jsonPrimitive?.content ?: "Outros"
-                    val type = jsonElement["type"]?.jsonPrimitive?.content ?: "expense"
-
-                    AISuggestedAction(
-                        type = com.example.clareza.ai.model.AIActionType.CREATE_TRANSACTION,
-                        description = "Registrar $desc no valor de R$ $amt",
-                        transactionPayload = com.example.clareza.ai.model.AITransactionPayload(
-                            amount = amt,
-                            description = desc,
-                            bucket = bucket,
-                            category = category,
-                            type = type
-                        )
-                    )
-                } else {
-                    null
-                }
-            } catch (e: Exception) {
-                null
-            }
-        }
-        return null
     }
 }

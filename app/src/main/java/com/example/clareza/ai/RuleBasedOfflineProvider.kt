@@ -47,7 +47,7 @@ open class RuleBasedOfflineProvider : AIProvider {
 
         // 2. Análise contextual refinada baseada no FinancialContext do usuário
         val responseText = analyzeQueryWithContext(query, ctx, prompt)
-        val extractedAction = extractActionFromText(responseText)
+        val extractedAction = AIActionParser.extractActionFromText(responseText)
 
         val latency = System.currentTimeMillis() - startTime
         return AIResponse(
