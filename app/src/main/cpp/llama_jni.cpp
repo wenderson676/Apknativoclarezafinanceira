@@ -125,20 +125,30 @@ Java_com_example_clareza_ai_runtime_LocalLLMRuntime_nativeGenerateInference(
 
     const struct llama_vocab *vocab = llama_model_get_vocab(holder->model);
 
-    // Clear KV memory and reset sampler state for fresh generation
-    llama_memory_clear(llama_get_memory(holder->ctx), true);
+    // Clear sequence tokens from KV memory safely without freeing allocated memory buffers
+    llama_memory_seq_rm(llama_get_memory(holder->ctx), -1, -1, -1);
     llama_sampler_reset(holder->smpl);
 
-    // Calculate token count
-    int32_t n_tokens = -llama_tokenize(vocab, prompt_cstr, prompt_len, nullptr, 0, true, true);
-    if (n_tokens <= 0) {
+    // Calculate required token count
+    int32_t req_tokens = llama_tokenize(vocab, prompt_cstr, prompt_len, nullptr, 0, true, true);
+    if (req_tokens < 0) {
+        req_tokens = -req_tokens;
+    }
+    if (req_tokens <= 0) {
         env->ReleaseStringUTFChars(prompt, prompt_cstr);
         return env->NewStringUTF("");
     }
 
-    std::vector<llama_token> tokens(n_tokens);
-    llama_tokenize(vocab, prompt_cstr, prompt_len, tokens.data(), tokens.size(), true, true);
+    std::vector<llama_token> tokens(req_tokens);
+    int32_t actual_tokens = llama_tokenize(vocab, prompt_cstr, prompt_len, tokens.data(), static_cast<int32_t>(tokens.size()), true, true);
     env->ReleaseStringUTFChars(prompt, prompt_cstr);
+
+    if (actual_tokens < 0) {
+        actual_tokens = -actual_tokens;
+    }
+    if (actual_tokens > 0 && static_cast<size_t>(actual_tokens) <= tokens.size()) {
+        tokens.resize(actual_tokens);
+    }
 
     // Chunked prompt decode (max 512 tokens per batch)
     const int32_t batch_size = 512;

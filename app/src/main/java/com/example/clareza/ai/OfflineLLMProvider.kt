@@ -78,13 +78,13 @@ class OfflineLLMProvider(
             return ruleBasedFallback.generateResponse(prompt, request)
         }
 
-        // Execução no Runtime de LLM Local com Timeout de segurança (60s)
+        // Execução no Runtime de LLM Local com Timeout de segurança (30s)
         return try {
-            val inferenceResult = withTimeoutOrNull(60000L) {
+            val inferenceResult = withTimeoutOrNull(30000L) {
                 runtime.generateInference(prompt)
             }
-            if (inferenceResult != null && inferenceResult.isSuccess) {
-                val llmOutputText = inferenceResult.getOrThrow()
+            if (inferenceResult != null && inferenceResult.isSuccess && inferenceResult.getOrNull()?.isNotBlank() == true) {
+                val llmOutputText = inferenceResult.getOrThrow().trim()
                 val suggestedAction = AIActionParser.extractActionFromText(llmOutputText)
                 val latency = System.currentTimeMillis() - startTime
 
@@ -100,7 +100,6 @@ class OfflineLLMProvider(
                 fallbackResponse.copy(latencyMs = latency)
             }
         } catch (e: Throwable) {
-            // Em caso de falha de memória ou erro do runtime nativo, aciona o fallback com segurança
             val fallbackResponse = ruleBasedFallback.generateResponse(prompt, request)
             val latency = System.currentTimeMillis() - startTime
             fallbackResponse.copy(latencyMs = latency)
