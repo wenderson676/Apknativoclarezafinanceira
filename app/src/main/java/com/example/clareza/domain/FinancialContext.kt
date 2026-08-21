@@ -7,9 +7,13 @@ enum class FinancialStage(val title: String, val description: String) {
         title = "Endividamento Crítico",
         description = "Prioridade absoluta: estancar juros abusivos e quitar dívidas essenciais/urgentes."
     ),
+    MANAGEABLE_DEBT(
+        title = "Dívida em Amortização",
+        description = "Dívidas sob controle com plano estruturado de quitação (Método Avalanche)."
+    ),
     UNSTABLE_NO_RESERVE(
         title = "Instabilidade / Sem Reserva",
-        description = "Vulnerável a imprevistos. O foco imediato é construir uma reserva básica inicial."
+        description = "Vulnerável a imprevistos. O foco imediato é construir uma reserva básica de segurança."
     ),
     BUILDING_RESERVE(
         title = "Construção de Reserva",
@@ -36,7 +40,18 @@ enum class FinancialRiskLevel(val label: String, val colorHex: String) {
 data class CategoryExpense(
     val category: String,
     val amount: Double,
-    val percentageOfExpenses: Double
+    val percentageOfExpenses: Double,
+    val bucket: String
+)
+
+@Serializable
+data class HealthScoreBreakdown(
+    val cashFlowScore: Int, // 0 a 25
+    val reserveScore: Int, // 0 a 25
+    val debtScore: Int, // 0 a 25
+    val budgetDisciplineScore: Int, // 0 a 25
+    val totalScore: Int, // 0 a 100
+    val explanationFactors: List<String> = emptyList()
 )
 
 @Serializable
@@ -71,51 +86,45 @@ data class FinancialContext(
     val isDebtCapacityRestricted: Boolean,
 
     // Reserva e Autonomia
-    val monthsOfReserveCovered: Double, // Quanto tempo a reserva cobre de despesas fixas
+    val averageEssentialMonthlyExpenses: Double,
+    val monthsOfReserveCovered: Double, // Quanto tempo a reserva cobre de despesas essenciais reais
 
     // Diagnóstico e Classificação
     val healthScore: Int, // 0 a 100
+    val healthScoreBreakdown: HealthScoreBreakdown,
     val stage: FinancialStage,
     val riskLevel: FinancialRiskLevel,
     val primaryStrategicFocus: String,
 
-    // Maiores Ofensores de Gastos
-    val topExpenseCategories: List<CategoryExpense> = emptyList(),
+    // Categorias de Gastos Segregadas
+    val topEssentialExpenses: List<CategoryExpense> = emptyList(),
+    val topDiscretionaryExpenses: List<CategoryExpense> = emptyList(),
     val potentialMonthlySavings: Double = 0.0
 ) {
     /**
-     * Gera um resumo compacto e de altíssima densidade informacional,
-     * pronto para alimentar modelos de IA locais/offline ou motores analíticos.
+     * Fornece uma representação estruturada e concisa dos dados consolidados,
+     * desacoplada de prompts ou formatações de IA.
      */
-    fun toCompactPrompt(): String {
+    fun toCompactContext(): String {
         return buildString {
             appendLine("=== CONTEXTO FINANCEIRO CLAREZA ===")
             if (!userName.isNullOrBlank()) appendLine("Usuário: $userName")
             appendLine("Mês: $monthId | Modelo: $budgetMode")
-            appendLine("Fase Atual: ${stage.title} | Risco: ${riskLevel.label} | Score: $healthScore/100")
-            appendLine("--- FLUXO ---")
-            appendLine("Renda: R$ ${"%.2f".format(totalIncome)} | Despesas: R$ ${"%.2f".format(totalExpenses)} | Resultado: R$ ${"%.2f".format(monthResult)}")
-            appendLine("Saldo Líquido: R$ ${"%.2f".format(liquidBalance)} | Reserva Acumulada: R$ ${"%.2f".format(savingsBalance)} (Cobre ${"%.1f".format(monthsOfReserveCovered)} meses)")
-            appendLine("--- POTES ---")
-            appendLine("Necessidades: ${"%.1f".format(needsPercentage)}% (Alvo: ${"%.0f".format(targetNeedsPercentage * 100)}%)")
-            appendLine("Desejos: ${"%.1f".format(wantsPercentage)}% (Alvo: ${"%.0f".format(targetWantsPercentage * 100)}%)")
-            appendLine("Poupança/Dívidas: ${"%.1f".format(savingsPercentage)}% (Alvo: ${"%.0f".format(targetSavingsPercentage * 100)}%)")
+            appendLine("Fase: ${stage.title} | Risco: ${riskLevel.label} | Score: $healthScore/100")
+            appendLine("Fluxo: Renda R$ ${"%.2f".format(totalIncome)} | Despesas R$ ${"%.2f".format(totalExpenses)} | Resultado R$ ${"%.2f".format(monthResult)}")
+            appendLine("Saldos: Líquido R$ ${"%.2f".format(liquidBalance)} | Reserva R$ ${"%.2f".format(savingsBalance)} (${"%.1f".format(monthsOfReserveCovered)} meses de cobertura)")
+            appendLine("Gastos Essenciais Médios: R$ ${"%.2f".format(averageEssentialMonthlyExpenses)}")
+            appendLine("Potes: Necessidades ${"%.1f".format(needsPercentage)}% | Desejos ${"%.1f".format(wantsPercentage)}% | Poupança ${"%.1f".format(savingsPercentage)}%")
             if (totalDebt > 0) {
-                appendLine("--- DÍVIDAS ---")
-                appendLine("Dívida Total: R$ ${"%.2f".format(totalDebt)} (Comprometimento de Renda: ${"%.1f".format(debtToIncomeRatio)}%)")
-                appendLine("Parcelas Mínimas: R$ ${"%.2f".format(monthlyDebtMinimums)}/mês | Dívidas Urgentes: $highPriorityDebtCount")
-                if (estimatedDebtPayoffMonths > 0) {
-                    appendLine("Previsão Quitação: $estimatedDebtPayoffMonths meses")
-                }
+                appendLine("Dívidas: Total R$ ${"%.2f".format(totalDebt)} | Mínimos R$ ${"%.2f".format(monthlyDebtMinimums)}/mês | Comprometimento ${"%.1f".format(debtToIncomeRatio)}% | Urgentes: $highPriorityDebtCount")
             }
-            if (topExpenseCategories.isNotEmpty()) {
-                appendLine("--- PRINCIPAIS GASTOS ---")
-                topExpenseCategories.take(3).forEach {
-                    appendLine("- ${it.category}: R$ ${"%.2f".format(it.amount)} (${"%.1f".format(it.percentageOfExpenses)}%)")
-                }
+            if (topEssentialExpenses.isNotEmpty()) {
+                appendLine("Top Essenciais: " + topEssentialExpenses.joinToString { "${it.category}: R$ ${"%.2f".format(it.amount)}" })
             }
-            appendLine("--- FOCO ESTRATÉGICO ---")
-            appendLine(primaryStrategicFocus)
+            if (topDiscretionaryExpenses.isNotEmpty()) {
+                appendLine("Top Desejos: " + topDiscretionaryExpenses.joinToString { "${it.category}: R$ ${"%.2f".format(it.amount)}" })
+            }
+            appendLine("Foco Estratégico: $primaryStrategicFocus")
         }
     }
 }
