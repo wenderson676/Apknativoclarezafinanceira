@@ -309,7 +309,7 @@ object FinanceUtils {
         val categoryExpenses = mutableMapOf<String, Double>()
 
         transactions.forEach { t ->
-            if (t.type == "expense" && !it.isPending && !isReserva(t.account)) {
+            if (t.type == "expense" && !t.isPending && !isReserva(t.account)) {
                 if (t.bucket == "Desejos" || nonEssentialCategories.any { t.category.contains(it, ignoreCase = true) }) {
                     categoryExpenses[t.category] = (categoryExpenses[t.category] ?: 0.0) + t.amount
                 }
