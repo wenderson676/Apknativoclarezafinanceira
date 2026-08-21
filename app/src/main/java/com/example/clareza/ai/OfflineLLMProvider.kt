@@ -29,7 +29,21 @@ class OfflineLLMProvider(
      * Valida o arquivo do modelo antes de efetuar o carregamento na memória RAM.
      */
     fun validateModelFile(modelFile: File): Boolean {
+        return runtime.validateModelFile(modelFile).first
+    }
+
+    /**
+     * Valida e identifica o formato do modelo.
+     */
+    fun validateAndIdentifyModel(modelFile: File): Pair<Boolean, com.example.clareza.ai.runtime.ModelFormat> {
         return runtime.validateModelFile(modelFile)
+    }
+
+    /**
+     * Reage a eventos de pouca memória informados pelo SO.
+     */
+    suspend fun onLowMemory() {
+        runtime.onLowMemory()
     }
 
     /**
