@@ -2,6 +2,8 @@
 #include <string>
 #include <vector>
 #include <cstring>
+#include <thread>
+#include <algorithm>
 #include <android/log.h>
 #include "llama.h"
 
@@ -45,8 +47,12 @@ Java_com_example_clareza_ai_runtime_LocalLLMRuntime_nativeInitModelContext(
 
     llama_context_params cparams = llama_context_default_params();
     cparams.n_ctx = 1024;
-    cparams.n_threads = 4;
-    cparams.n_threads_batch = 4;
+    
+    int hw_threads = static_cast<int>(std::thread::hardware_concurrency());
+    int threads_to_use = (hw_threads > 0) ? std::min(4, std::max(2, hw_threads - 1)) : 4;
+    
+    cparams.n_threads = threads_to_use;
+    cparams.n_threads_batch = threads_to_use;
 
     llama_context *ctx = llama_init_from_model(model, cparams);
     if (!ctx) {

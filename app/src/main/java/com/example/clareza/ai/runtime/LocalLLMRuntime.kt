@@ -133,9 +133,9 @@ class LocalLLMRuntime(
     }
 
     override suspend fun onLowMemory(): Unit = withContext(Dispatchers.IO) {
-        if (memoryPolicy == ModelMemoryPolicy.UNLOAD_ON_LOW_MEMORY || memoryPolicy == ModelMemoryPolicy.AUTO_UNLOAD_AFTER_INFERENCE) {
-            unloadModelInternal()
-        }
+        // Em situações de emergência de pouca memória informadas pelo SO Android,
+        // descarrega o modelo da RAM nativa incondicionalmente para evitar OOM / crash do app.
+        unloadModelInternal()
     }
 
     override suspend fun generateInference(prompt: String): Result<String> = withContext(Dispatchers.Default) {
