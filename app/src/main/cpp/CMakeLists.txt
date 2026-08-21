@@ -22,6 +22,5 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp/CMakeLists.txt")
         log
     )
 else()
-    add_library(llama_jni SHARED llama_jni_stub.cpp)
-    target_link_libraries(llama_jni PRIVATE log)
+    message(FATAL_ERROR "llama.cpp source not found at ${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp. The offline GGUF AI engine cannot be compiled. Please clone the llama.cpp repository into this directory to enable real AI inference, or remove this error if you explicitly want to build without AI.")
 endif()
