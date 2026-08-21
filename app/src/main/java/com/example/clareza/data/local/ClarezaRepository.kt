@@ -102,7 +102,9 @@ class ClarezaRepository(private val dao: ClarezaDao) {
         monthNotesList: List<MonthNoteEntity>,
         userName: String?,
         budgetMode: String,
-        customCategories: CustomCategories
+        themeMode: String,
+        customCategories: CustomCategories,
+        dashboardCardOrder: List<String> = emptyList()
     ): String {
         val monthlyMap = mutableMapOf<String, MonthlyData>()
         
@@ -120,13 +122,16 @@ class ClarezaRepository(private val dao: ClarezaDao) {
         }
 
         val appState = AppState(
+            schemaVersion = 1,
             userName = userName,
             budgetMode = budgetMode,
+            themeMode = themeMode,
             accounts = accountsList,
             goals = goalsList,
             debts = debtsList,
             monthlyData = monthlyMap,
-            customCategories = customCategories
+            customCategories = customCategories,
+            dashboardCardOrder = dashboardCardOrder
         )
 
         return json.encodeToString(AppState.serializer(), appState)
@@ -181,6 +186,7 @@ class ClarezaRepository(private val dao: ClarezaDao) {
             dao.setSetting(UserSettingEntity("userName", appState.userName))
         }
         dao.setSetting(UserSettingEntity("budgetMode", appState.budgetMode))
+        dao.setSetting(UserSettingEntity("themeMode", appState.themeMode))
 
         val customCatsJson = json.encodeToString(CustomCategories.serializer(), appState.customCategories)
         dao.setSetting(UserSettingEntity("customCategories", customCatsJson))

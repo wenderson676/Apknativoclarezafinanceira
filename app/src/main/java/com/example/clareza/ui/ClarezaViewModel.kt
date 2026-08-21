@@ -10,6 +10,9 @@ import com.example.clareza.data.model.CustomCategories
 import com.example.clareza.data.model.Debt
 import com.example.clareza.data.model.Goal
 import com.example.clareza.data.model.Transaction
+import com.example.clareza.domain.DebtEngine
+import com.example.clareza.domain.DebtPlan
+import com.example.clareza.domain.FinanceEngine
 import com.example.clareza.util.DiagnosticResult
 import com.example.clareza.util.FinanceUtils
 import kotlinx.coroutines.flow.Flow
@@ -26,7 +29,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 @Suppress("UNCHECKED_CAST")
-fun <T1, T2, T3, T4, T5, T6, T7, T8, R> combine(
+fun <T1, T2, T3, T4, T5, T6, T7, R> combine(
     f1: Flow<T1>,
     f2: Flow<T2>,
     f3: Flow<T3>,
@@ -34,9 +37,8 @@ fun <T1, T2, T3, T4, T5, T6, T7, T8, R> combine(
     f5: Flow<T5>,
     f6: Flow<T6>,
     f7: Flow<T7>,
-    f8: Flow<T8>,
-    transform: suspend (T1, T2, T3, T4, T5, T6, T7, T8) -> R
-): Flow<R> = kotlinx.coroutines.flow.combine(listOf(f1, f2, f3, f4, f5, f6, f7, f8)) { args: Array<*> ->
+    transform: suspend (T1, T2, T3, T4, T5, T6, T7) -> R
+): Flow<R> = kotlinx.coroutines.flow.combine(listOf(f1, f2, f3, f4, f5, f6, f7)) { args: Array<*> ->
     transform(
         args[0] as T1,
         args[1] as T2,
@@ -44,8 +46,7 @@ fun <T1, T2, T3, T4, T5, T6, T7, T8, R> combine(
         args[3] as T4,
         args[4] as T5,
         args[5] as T6,
-        args[6] as T7,
-        args[7] as T8
+        args[6] as T7
     )
 }
 
@@ -56,16 +57,6 @@ data class BucketProgress(
     val ratio: Double,
     val percentage: Double,
     val status: String // "normal", "warning", "danger"
-)
-
-data class DebtPlan(
-    val totalDebt: Double,
-    val monthlyCapacity: Double,
-    val payoffMonths: Int,
-    val highPriorityCount: Int,
-    val mediumPriorityCount: Int,
-    val lowPriorityCount: Int,
-    val sortedDebts: List<Debt>
 )
 
 data class ClarezaUiState(
@@ -100,7 +91,6 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true; encodeDefaults = true }
 
     private val _selectedYearMonth = MutableStateFlow(YearMonth.now())
-    private val _isDarkMode = MutableStateFlow(false)
     private val _verse = MutableStateFlow(FinanceUtils.getRandomVerse())
 
     init {
@@ -115,15 +105,15 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
         repository.goals,
         repository.debts,
         repository.monthNotes,
-        repository.settings,
-        _isDarkMode
-    ) { yearMonth, accountsList, allTxList, goalsList, debtsList, notesList, settingsMap, isDark ->
+        repository.settings
+    ) { yearMonth, accountsList, allTxList, goalsList, debtsList, notesList, settingsMap ->
 
         val monthId = yearMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"))
         val currentMonthTxs = allTxList.filter { it.monthId == monthId }
         val note = notesList.find { it.monthId == monthId }?.note ?: ""
         val userName = settingsMap["userName"]
         val budgetMode = settingsMap["budgetMode"] ?: "50-30-20"
+        val isDark = settingsMap["themeMode"] == "dark"
         val customCats = try {
             settingsMap["customCategories"]?.let { json.decodeFromString(CustomCategories.serializer(), it) }
                 ?: CustomCategories()
@@ -131,52 +121,18 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
             CustomCategories()
         }
 
-        // Account balances calculation
-        val balances = mutableMapOf<String, Double>()
-        accountsList.forEach { acc ->
-            balances[acc.id] = acc.initialBalance
-        }
-        if (!balances.containsKey("banco")) balances["banco"] = 0.0
-        if (!balances.containsKey("reserva")) balances["reserva"] = 0.0
-        if (!balances.containsKey("carteira")) balances["carteira"] = 0.0
+        // Account balances calculation via FinanceEngine
+        val (balances, totalBalance, liquidSavingsPair) = FinanceEngine.calculateAccountBalances(
+            accountsList = accountsList,
+            allTransactions = allTxList
+        )
+        val (liquidBalance, savingsBalance) = liquidSavingsPair
 
-        allTxList.filter { !it.isPending }.forEach { tx ->
-            val act = tx.account.ifBlank { "banco" }
-            val toAct = tx.toAccount
-
-            when (tx.type) {
-                "income" -> {
-                    balances[act] = (balances[act] ?: 0.0) + tx.amount
-                }
-                "expense" -> {
-                    balances[act] = (balances[act] ?: 0.0) - tx.amount
-                }
-                "transfer_to_savings" -> {
-                    balances[act] = (balances[act] ?: 0.0) - tx.amount
-                    balances["reserva"] = (balances["reserva"] ?: 0.0) + tx.amount
-                }
-                "transfer_from_savings" -> {
-                    balances["reserva"] = (balances["reserva"] ?: 0.0) - tx.amount
-                    balances[act] = (balances[act] ?: 0.0) + tx.amount
-                }
-                "transfer_between_accounts" -> {
-                    balances[act] = (balances[act] ?: 0.0) - tx.amount
-                    if (!toAct.isNullOrBlank()) {
-                        balances[toAct] = (balances[toAct] ?: 0.0) + tx.amount
-                    }
-                }
-            }
-        }
-
+        // Current month totals
         val isReserva = { id: String? ->
             id == "reserva" || accountsList.find { it.id == id }?.type == "reserva"
         }
 
-        val totalBalance = balances.values.sum()
-        val savingsBalance = balances.filter { isReserva(it.key) }.values.sum()
-        val liquidBalance = totalBalance - savingsBalance
-
-        // Current month totals
         val nonPendingCurrent = currentMonthTxs.filter { !it.isPending }
         val totalIncome = nonPendingCurrent
             .filter { it.type == "income" && !isReserva(it.account) }
@@ -203,69 +159,19 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
 
         val monthResult = totalIncome - totalExpenses - netSavingsTransfer
 
-        // Bucket progress
-        val modeInfo = FinanceUtils.BUDGET_MODES_INFO[budgetMode] ?: FinanceUtils.BUDGET_MODES_INFO["50-30-20"]!!
-        val baseForBudget = if (totalIncome > 0) totalIncome else maxOf(1.0, liquidBalance)
+        // Bucket progress calculated via FinanceEngine
+        val bucketProgress = FinanceEngine.calculateBucketProgress(
+            currentMonthTxs = currentMonthTxs,
+            totalIncome = totalIncome,
+            liquidBalance = liquidBalance,
+            budgetMode = budgetMode
+        )
 
-        val bucketList = listOf("Necessidades", "Desejos", "Reserva/Dívidas")
-        val bucketProgress = bucketList.map { bucketName ->
-            val ratio = modeInfo.ratios[bucketName] ?: 0.0
-            val limit = baseForBudget * ratio
-
-            val spent = if (bucketName == "Reserva/Dívidas") {
-                maxOf(0.0, netSavingsTransfer)
-            } else {
-                nonPendingCurrent
-                    .filter { it.type == "expense" && it.bucket == bucketName && !isReserva(it.account) }
-                    .sumOf { it.amount }
-            }
-
-            val percentage = if (limit > 0) (spent / limit) * 100.0 else 0.0
-            val status = when {
-                percentage > 100.0 -> "danger"
-                percentage > 85.0 -> "warning"
-                else -> "normal"
-            }
-
-            BucketProgress(
-                bucketName = bucketName,
-                spent = spent,
-                limit = limit,
-                ratio = ratio,
-                percentage = percentage,
-                status = status
-            )
-        }
-
-        // Debt plan calculations (Avalanche priority)
-        val debtPlan = if (debtsList.isNotEmpty()) {
-            val totalDebt = debtsList.sumOf { it.totalAmount }
-            val monthlyCapacity = maxOf(300.0, totalIncome * 0.30)
-            val payoffMonths = if (monthlyCapacity > 0) kotlin.math.ceil(totalDebt / monthlyCapacity).toInt() else 0
-
-            val priorityOrder = mapOf("Máxima" to 1, "Média" to 2, "Baixa" to 3)
-            val sorted = debtsList.sortedWith(
-                compareBy(
-                    { priorityOrder[FinanceUtils.DEBT_TYPES_INFO[it.type]?.priority ?: "Baixa"] ?: 3 },
-                    { -it.interestRate },
-                    { -it.totalAmount }
-                )
-            )
-
-            val highCount = debtsList.count { FinanceUtils.DEBT_TYPES_INFO[it.type]?.priority == "Máxima" }
-            val medCount = debtsList.count { FinanceUtils.DEBT_TYPES_INFO[it.type]?.priority == "Média" }
-            val lowCount = debtsList.count { FinanceUtils.DEBT_TYPES_INFO[it.type]?.priority == "Baixa" }
-
-            DebtPlan(
-                totalDebt = totalDebt,
-                monthlyCapacity = monthlyCapacity,
-                payoffMonths = payoffMonths,
-                highPriorityCount = highCount,
-                mediumPriorityCount = medCount,
-                lowPriorityCount = lowCount,
-                sortedDebts = sorted
-            )
-        } else null
+        // Debt plan calculations via DebtEngine (accurate payoff & capacity)
+        val debtPlan = DebtEngine.calculateDebtPlan(
+            debtsList = debtsList,
+            totalIncome = totalIncome
+        )
 
         // Diagnostics
         val diagnostics = FinanceUtils.calculateDiagnostic(
@@ -302,12 +208,12 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
             dailyVerse = _verse.value
         )
     }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = ClarezaUiState()
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        ClarezaUiState()
     )
 
-    fun changeMonth(yearMonth: YearMonth) {
+    fun setYearMonth(yearMonth: YearMonth) {
         _selectedYearMonth.value = yearMonth
     }
 
@@ -320,11 +226,16 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
     }
 
     fun toggleDarkMode() {
-        _isDarkMode.value = !_isDarkMode.value
+        viewModelScope.launch {
+            val newMode = if (uiState.value.isDarkMode) "light" else "dark"
+            repository.setSetting("themeMode", newMode)
+        }
     }
 
-    fun refreshVerse() {
-        _verse.value = FinanceUtils.getRandomVerse()
+    fun setBudgetMode(mode: String) {
+        viewModelScope.launch {
+            repository.setSetting("budgetMode", mode)
+        }
     }
 
     fun setUserName(name: String) {
@@ -333,10 +244,8 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun setBudgetMode(mode: String) {
-        viewModelScope.launch {
-            repository.setSetting("budgetMode", mode)
-        }
+    fun refreshVerse() {
+        _verse.value = FinanceUtils.getRandomVerse()
     }
 
     fun addTransaction(
@@ -429,7 +338,6 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val newAmount = goal.currentAmount + amount
             repository.saveGoal(goal.copy(currentAmount = newAmount))
-            // Also record a transfer/reserve transaction
             val today = LocalDate.now()
             val monthId = today.format(DateTimeFormatter.ofPattern("yyyy-MM"))
             repository.saveTransaction(
@@ -462,7 +370,7 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
                     monthId = monthId,
                     amount = amount,
                     description = "Resgate: ${goal.title}",
-                    bucket = "Renda",
+                    bucket = "Transferência",
                     category = "Resgate de Reserva",
                     date = today.format(DateTimeFormatter.ISO_LOCAL_DATE),
                     isPending = false,
@@ -529,6 +437,7 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
             monthNotesList = emptyList(),
             userName = state.userName,
             budgetMode = state.budgetMode,
+            themeMode = if (state.isDarkMode) "dark" else "light",
             customCategories = state.customCategories
         )
     }

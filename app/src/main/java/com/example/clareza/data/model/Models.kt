@@ -78,8 +78,10 @@ data class MonthlyData(
 
 @Serializable
 data class AppState(
+    val schemaVersion: Int = 1,
     val userName: String? = null,
     val budgetMode: String = "50-30-20",
+    val themeMode: String = "light", // "light", "dark"
     val accounts: List<Account> = emptyList(),
     val goals: List<Goal> = emptyList(),
     val debts: List<Debt> = emptyList(),
