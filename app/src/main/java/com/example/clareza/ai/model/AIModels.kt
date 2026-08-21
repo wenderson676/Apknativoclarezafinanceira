@@ -50,6 +50,7 @@ data class AISuggestedAction(
 data class AIRequest(
     val userMessage: String,
     val conversationHistory: List<AIChatMessage> = emptyList(),
+    val financialContext: com.example.clareza.domain.FinancialContext? = null,
     val systemPromptOverride: String? = null
 )
 

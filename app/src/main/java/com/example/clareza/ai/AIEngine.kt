@@ -5,14 +5,15 @@ import com.example.clareza.ai.model.AIResponse
 import com.example.clareza.domain.FinancialContext
 
 class AIEngine(
-    private var provider: AIProvider = OfflineAIProvider()
+    private var primaryProvider: AIProvider = RuleBasedOfflineProvider(),
+    private val fallbackProvider: AIProvider = RuleBasedOfflineProvider()
 ) {
 
     fun setProvider(newProvider: AIProvider) {
-        this.provider = newProvider
+        this.primaryProvider = newProvider
     }
 
-    fun getActiveProvider(): AIProvider = provider
+    fun getActiveProvider(): AIProvider = primaryProvider
 
     suspend fun processUserMessage(
         userMessage: String,
@@ -26,9 +27,19 @@ class AIEngine(
         )
 
         val request = AIRequest(
-            userMessage = userMessage
+            userMessage = userMessage,
+            financialContext = financialContext
         )
 
-        return provider.generateResponse(fullPrompt, request)
+        return try {
+            if (primaryProvider.isAvailable) {
+                primaryProvider.generateResponse(fullPrompt, request)
+            } else {
+                fallbackProvider.generateResponse(fullPrompt, request)
+            }
+        } catch (e: Exception) {
+            // Em caso de exceção no provedor primário, recorre com segurança ao provedor de regras determinístico
+            fallbackProvider.generateResponse(fullPrompt, request)
+        }
     }
 }
