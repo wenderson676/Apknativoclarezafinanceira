@@ -5,6 +5,8 @@ import com.example.clareza.data.model.Debt
 import com.example.clareza.data.model.Goal
 import com.example.clareza.data.model.Transaction
 import com.example.clareza.util.FinanceUtils
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlin.math.max
 
 object FinancialContextBuilder {
@@ -87,20 +89,32 @@ object FinancialContextBuilder {
         val debtRestricted = debtPlan?.isCapacityRestricted ?: false
         val debtToIncomeRatio = if (totalIncome > 0) (monthlyDebtMinimums / totalIncome) * 100 else 0.0
 
-        // Estimativa histórica de despesas essenciais (sem valores fixos fictícios)
-        val averageEssentialExpenses = calculateHistoricalEssentialExpenses(
+        // Estimativa histórica de despesas essenciais estritamente baseada em lançamentos reais
+        val (averageEssentialExpenses, historicalMonthsUsed, isAutonomyDataSufficient) = calculateHistoricalEssentialExpenses(
             allTransactions = allTransactions,
-            currentMonthNeeds = needsSpent,
-            currentIncome = totalIncome
+            currentMonthNeeds = needsSpent
         )
 
         // Meses de Reserva cobertos
-        val monthsCovered = if (averageEssentialExpenses > 0) {
+        val monthsCovered = if (isAutonomyDataSufficient && averageEssentialExpenses > 0) {
             savingsBalance / averageEssentialExpenses
-        } else if (savingsBalance > 0) {
-            12.0 // Se não há despesas e há reserva
         } else {
             0.0
+        }
+
+        // Processamento das Metas Ativas
+        val activeGoals = goalsList.map { goal ->
+            val progress = if (goal.targetAmount > 0) (goal.currentAmount / goal.targetAmount) * 100 else 0.0
+
+            FinancialGoalContext(
+                id = goal.id,
+                title = goal.title,
+                targetAmount = goal.targetAmount,
+                currentAmount = goal.currentAmount,
+                progressPercentage = progress.coerceIn(0.0, 100.0),
+                deadline = null,
+                monthlyRequired = 0.0
+            )
         }
 
         // Categorias Segregadas: Essenciais (Necessidades) vs Discricionárias (Desejos)
@@ -141,6 +155,7 @@ object FinancialContextBuilder {
             totalIncome = totalIncome,
             totalExpenses = totalExpenses,
             monthsCovered = monthsCovered,
+            isAutonomyDataSufficient = isAutonomyDataSufficient,
             savingsBalance = savingsBalance,
             totalDebt = totalDebt,
             highPriorityDebts = highPriorityDebts,
@@ -157,6 +172,7 @@ object FinancialContextBuilder {
             debtToIncomeRatio = debtToIncomeRatio,
             savingsBalance = savingsBalance,
             monthsCovered = monthsCovered,
+            isAutonomyDataSufficient = isAutonomyDataSufficient,
             liquidBalance = liquidBalance
         )
 
@@ -189,6 +205,9 @@ object FinancialContextBuilder {
             isDebtCapacityRestricted = debtRestricted,
             averageEssentialMonthlyExpenses = averageEssentialExpenses,
             monthsOfReserveCovered = monthsCovered,
+            historicalMonthsUsed = historicalMonthsUsed,
+            isAutonomyDataSufficient = isAutonomyDataSufficient,
+            activeGoals = activeGoals,
             healthScore = healthScoreBreakdown.totalScore,
             healthScoreBreakdown = healthScoreBreakdown,
             stage = stage,
@@ -201,26 +220,44 @@ object FinancialContextBuilder {
     }
 
     /**
-     * Calcula média de despesas essenciais com base no histórico real dos últimos meses,
-     * eliminando qualquer valor padrão arbitrário.
+     * Calcula média de despesas essenciais estritamente com base nos meses registrados.
+     * Retorna Triple(Média, MesesUtilizados, DadosSuficientes).
+     * Se não existirem transações registradas, retorna (0.0, 0, false) sem inventar fallbacks.
      */
     private fun calculateHistoricalEssentialExpenses(
         allTransactions: List<Transaction>,
-        currentMonthNeeds: Double,
-        currentIncome: Double
-    ): Double {
+        currentMonthNeeds: Double
+    ): Triple<Double, Int, Boolean> {
         val nonPendingNeeds = allTransactions.filter { !it.isPending && it.type == "expense" && it.bucket == "Necessidades" }
         val byMonth = nonPendingNeeds.groupBy { it.monthId }
 
         if (byMonth.isNotEmpty()) {
-            val monthlyAverages = byMonth.values.map { txList -> txList.sumOf { it.amount } }
-            val avg = monthlyAverages.average()
-            if (avg > 0) return avg
+            val monthlyTotals = byMonth.values.map { txList -> txList.sumOf { it.amount } }
+            val avg = monthlyTotals.average()
+            if (avg > 0) {
+                return Triple(avg, byMonth.size, true)
+            }
         }
 
-        if (currentMonthNeeds > 0) return currentMonthNeeds
-        if (currentIncome > 0) return currentIncome * 0.50 // Estimativa pelo orçamento 50%
-        return 0.0
+        if (currentMonthNeeds > 0) {
+            return Triple(currentMonthNeeds, 1, true)
+        }
+
+        return Triple(0.0, 0, false)
+    }
+
+    private fun calculateMonthlyRequiredForGoal(remainingAmount: Double, deadlineStr: String?): Double {
+        if (remainingAmount <= 0) return 0.0
+        if (deadlineStr.isNullOrBlank()) return 0.0
+
+        return try {
+            val today = LocalDate.now()
+            val deadline = LocalDate.parse(deadlineStr)
+            val months = ChronoUnit.MONTHS.between(today, deadline).coerceAtLeast(1)
+            remainingAmount / months
+        } catch (e: Exception) {
+            0.0
+        }
     }
 
     /**
@@ -234,6 +271,7 @@ object FinancialContextBuilder {
         totalIncome: Double,
         totalExpenses: Double,
         monthsCovered: Double,
+        isAutonomyDataSufficient: Boolean,
         savingsBalance: Double,
         totalDebt: Double,
         highPriorityDebts: Int,
@@ -263,26 +301,36 @@ object FinancialContextBuilder {
 
         // 2. Reserva de Emergência (25 pts)
         var reserve = 0
-        when {
-            monthsCovered >= 6.0 -> {
-                reserve = 25
-                factors.add("Reserva robusta >= 6 meses (+25)")
-            }
-            monthsCovered >= 3.0 -> {
-                reserve = 20
-                factors.add("Reserva saudável de 3 a 6 meses (+20)")
-            }
-            monthsCovered >= 1.0 -> {
-                reserve = 12
-                factors.add("Reserva básica em formação (+12)")
-            }
-            savingsBalance > 0 -> {
-                reserve = 5
-                factors.add("Reserva inicial abaixo de 1 mês (+5)")
-            }
-            else -> {
+        if (!isAutonomyDataSufficient) {
+            if (savingsBalance > 0) {
+                reserve = 10
+                factors.add("Reserva presente, porém histórico de despesas essenciais ainda insuficiente (+10)")
+            } else {
                 reserve = 0
-                factors.add("Sem reserva de emergência (0)")
+                factors.add("Sem reserva de emergência e sem histórico (0)")
+            }
+        } else {
+            when {
+                monthsCovered >= 6.0 -> {
+                    reserve = 25
+                    factors.add("Reserva robusta >= 6 meses (+25)")
+                }
+                monthsCovered >= 3.0 -> {
+                    reserve = 20
+                    factors.add("Reserva saudável de 3 a 6 meses (+20)")
+                }
+                monthsCovered >= 1.0 -> {
+                    reserve = 12
+                    factors.add("Reserva básica em formação (+12)")
+                }
+                savingsBalance > 0 -> {
+                    reserve = 5
+                    factors.add("Reserva inicial abaixo de 1 mês (+5)")
+                }
+                else -> {
+                    reserve = 0
+                    factors.add("Sem reserva de emergência (0)")
+                }
             }
         }
 
@@ -345,6 +393,7 @@ object FinancialContextBuilder {
         debtToIncomeRatio: Double,
         savingsBalance: Double,
         monthsCovered: Double,
+        isAutonomyDataSufficient: Boolean,
         liquidBalance: Double
     ): Triple<FinancialStage, FinancialRiskLevel, String> {
         // Distinção precisa: Endividamento Crítico vs Dívida em Amortização
@@ -366,6 +415,22 @@ object FinancialContextBuilder {
         }
 
         // Sem dívidas: avaliar reserva e autonomia real
+        if (!isAutonomyDataSufficient) {
+            return if (savingsBalance <= 0) {
+                Triple(
+                    FinancialStage.UNSTABLE_NO_RESERVE,
+                    if (liquidBalance < 200) FinancialRiskLevel.HIGH else FinancialRiskLevel.MODERATE,
+                    "Registrar os primeiros gastos de Necessidades e iniciar uma Reserva de Emergência inicial."
+                )
+            } else {
+                Triple(
+                    FinancialStage.BUILDING_RESERVE,
+                    FinancialRiskLevel.MODERATE,
+                    "Continuar registrando despesas essenciais para calcular a cobertura exata da reserva acumulada."
+                )
+            }
+        }
+
         if (savingsBalance <= 0 || monthsCovered < 0.5) {
             return Triple(
                 FinancialStage.UNSTABLE_NO_RESERVE,

@@ -45,6 +45,17 @@ data class CategoryExpense(
 )
 
 @Serializable
+data class FinancialGoalContext(
+    val id: String,
+    val title: String,
+    val targetAmount: Double,
+    val currentAmount: Double,
+    val progressPercentage: Double,
+    val deadline: String?,
+    val monthlyRequired: Double
+)
+
+@Serializable
 data class HealthScoreBreakdown(
     val cashFlowScore: Int, // 0 a 25
     val reserveScore: Int, // 0 a 25
@@ -88,6 +99,11 @@ data class FinancialContext(
     // Reserva e Autonomia
     val averageEssentialMonthlyExpenses: Double,
     val monthsOfReserveCovered: Double, // Quanto tempo a reserva cobre de despesas essenciais reais
+    val historicalMonthsUsed: Int, // Número real de meses analisados no histórico de despesas essenciais
+    val isAutonomyDataSufficient: Boolean, // False se não houver registros suficientes para cálculo real
+
+    // Metas Ativas
+    val activeGoals: List<FinancialGoalContext> = emptyList(),
 
     // Diagnóstico e Classificação
     val healthScore: Int, // 0 a 100
@@ -112,11 +128,18 @@ data class FinancialContext(
             appendLine("Mês: $monthId | Modelo: $budgetMode")
             appendLine("Fase: ${stage.title} | Risco: ${riskLevel.label} | Score: $healthScore/100")
             appendLine("Fluxo: Renda R$ ${"%.2f".format(totalIncome)} | Despesas R$ ${"%.2f".format(totalExpenses)} | Resultado R$ ${"%.2f".format(monthResult)}")
-            appendLine("Saldos: Líquido R$ ${"%.2f".format(liquidBalance)} | Reserva R$ ${"%.2f".format(savingsBalance)} (${"%.1f".format(monthsOfReserveCovered)} meses de cobertura)")
-            appendLine("Gastos Essenciais Médios: R$ ${"%.2f".format(averageEssentialMonthlyExpenses)}")
+            if (isAutonomyDataSufficient) {
+                appendLine("Saldos: Líquido R$ ${"%.2f".format(liquidBalance)} | Reserva R$ ${"%.2f".format(savingsBalance)} (${"%.1f".format(monthsOfReserveCovered)} meses de cobertura baseados em $historicalMonthsUsed meses)")
+                appendLine("Gastos Essenciais Médios: R$ ${"%.2f".format(averageEssentialMonthlyExpenses)}")
+            } else {
+                appendLine("Saldos: Líquido R$ ${"%.2f".format(liquidBalance)} | Reserva R$ ${"%.2f".format(savingsBalance)} (Dados insuficientes para calcular autonomia de reserva)")
+            }
             appendLine("Potes: Necessidades ${"%.1f".format(needsPercentage)}% | Desejos ${"%.1f".format(wantsPercentage)}% | Poupança ${"%.1f".format(savingsPercentage)}%")
             if (totalDebt > 0) {
                 appendLine("Dívidas: Total R$ ${"%.2f".format(totalDebt)} | Mínimos R$ ${"%.2f".format(monthlyDebtMinimums)}/mês | Comprometimento ${"%.1f".format(debtToIncomeRatio)}% | Urgentes: $highPriorityDebtCount")
+            }
+            if (activeGoals.isNotEmpty()) {
+                appendLine("Metas Ativas: " + activeGoals.joinToString { "${it.title} (R$ ${"%.2f".format(it.currentAmount)}/R$ ${"%.2f".format(it.targetAmount)} - ${"%.0f".format(it.progressPercentage)}%)" })
             }
             if (topEssentialExpenses.isNotEmpty()) {
                 appendLine("Top Essenciais: " + topEssentialExpenses.joinToString { "${it.category}: R$ ${"%.2f".format(it.amount)}" })
