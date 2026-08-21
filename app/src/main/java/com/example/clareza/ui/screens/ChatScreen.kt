@@ -53,8 +53,11 @@ fun ChatScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        chatViewModel.refreshLLMStatus()
+    DisposableEffect(Unit) {
+        chatViewModel.autoLoadModelIfAvailable()
+        onDispose {
+            chatViewModel.onChatClosed()
+        }
     }
 
     Column(

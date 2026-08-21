@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.clareza.ai.AIController
+import com.example.clareza.ai.DownloadProgress
 import com.example.clareza.ai.GGUFModelInfo
 import com.example.clareza.ai.ModelLoadingState
 import com.example.clareza.ai.RecommendedModel
@@ -17,6 +18,7 @@ import java.io.File
 data class AIModelsUiState(
     val availableModels: List<GGUFModelInfo> = emptyList(),
     val recommendedModels: List<RecommendedModel> = emptyList(),
+    val downloadProgresses: Map<String, DownloadProgress> = emptyMap(),
     val activeModelName: String? = null,
     val loadingState: ModelLoadingState = ModelLoadingState.IDLE,
     val statusMessage: String? = null,
@@ -47,6 +49,14 @@ class AIModelsViewModel(application: Application) : AndroidViewModel(application
         }
 
         viewModelScope.launch {
+            aiController.downloadProgresses.collect { progresses ->
+                _uiState.value = _uiState.value.copy(
+                    downloadProgresses = progresses
+                )
+            }
+        }
+
+        viewModelScope.launch {
             aiController.loadingState.collect { state ->
                 _uiState.value = _uiState.value.copy(loadingState = state)
             }
@@ -55,6 +65,29 @@ class AIModelsViewModel(application: Application) : AndroidViewModel(application
 
     fun refreshModels() {
         aiController.refreshAvailableModels()
+    }
+
+    fun downloadAndLoadModel(recModel: RecommendedModel) {
+        _uiState.value = _uiState.value.copy(
+            statusMessage = "Iniciando download do modelo \"${recModel.name}\"...",
+            errorMessage = null
+        )
+
+        viewModelScope.launch {
+            val result = aiController.downloadModel(recModel)
+            result.onSuccess { downloadedFile ->
+                _uiState.value = _uiState.value.copy(
+                    statusMessage = "✓ Download concluído! Carregando \"${recModel.name}\" na RAM...",
+                    errorMessage = null
+                )
+                loadModel(downloadedFile)
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    statusMessage = null,
+                    errorMessage = "Falha ao baixar modelo: ${error.localizedMessage ?: "Erro de rede"}"
+                )
+            }
+        }
     }
 
     fun importGGUF(uri: Uri) {

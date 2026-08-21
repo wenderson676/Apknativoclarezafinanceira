@@ -5,6 +5,7 @@ import com.example.clareza.ai.model.AIResponse
 import com.example.clareza.ai.runtime.LLMRuntime
 import com.example.clareza.ai.runtime.LocalLLMRuntime
 import com.example.clareza.ai.runtime.ModelMemoryPolicy
+import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
 
 /**
@@ -77,10 +78,12 @@ class OfflineLLMProvider(
             return ruleBasedFallback.generateResponse(prompt, request)
         }
 
-        // Execução no Runtime de LLM Local
+        // Execução no Runtime de LLM Local com Timeout de segurança (60s)
         return try {
-            val inferenceResult = runtime.generateInference(prompt)
-            if (inferenceResult.isSuccess) {
+            val inferenceResult = withTimeoutOrNull(60000L) {
+                runtime.generateInference(prompt)
+            }
+            if (inferenceResult != null && inferenceResult.isSuccess) {
                 val llmOutputText = inferenceResult.getOrThrow()
                 val suggestedAction = AIActionParser.extractActionFromText(llmOutputText)
                 val latency = System.currentTimeMillis() - startTime
@@ -96,7 +99,7 @@ class OfflineLLMProvider(
                 val latency = System.currentTimeMillis() - startTime
                 fallbackResponse.copy(latencyMs = latency)
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Em caso de falha de memória ou erro do runtime nativo, aciona o fallback com segurança
             val fallbackResponse = ruleBasedFallback.generateResponse(prompt, request)
             val latency = System.currentTimeMillis() - startTime

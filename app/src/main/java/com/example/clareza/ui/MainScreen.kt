@@ -112,7 +112,7 @@ fun MainScreen(
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = state.userName?.ifBlank { "Definir Meu Nome" } ?: "Paz e Graça",
+                                        text = state.userName?.takeIf { it.isNotBlank() } ?: "Definir Meu Nome",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp,
                                         color = MaterialTheme.colorScheme.onSurface,
@@ -139,10 +139,11 @@ fun MainScreen(
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.SmartToy, contentDescription = null, tint = EmeraldPrimary) },
                             label = { Text("Assistente IA Offline", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
-                            selected = currentScreen == "chat",
+                            selected = currentScreen == "main" && currentTab == 3,
                             onClick = {
                                 scope.launch { drawerState.close() }
-                                currentScreen = "chat"
+                                currentTab = 3
+                                currentScreen = "main"
                             },
                             shape = RoundedCornerShape(12.dp)
                         )
@@ -192,7 +193,7 @@ fun MainScreen(
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
-                            label = { Text("Tutorial & Princípios Bíblicos", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
+                            label = { Text("Tutorial & Princípios Financeiros", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
                             selected = false,
                             onClick = {
                                 scope.launch { drawerState.close() }
@@ -380,19 +381,32 @@ fun MainScreen(
                             indicatorColor = EmeraldPrimary.copy(alpha = 0.15f)
                         )
                     )
+
+                    NavigationBarItem(
+                        selected = (currentScreen == "main" && currentTab == 3) || currentScreen == "chat",
+                        onClick = {
+                            currentTab = 3
+                            currentScreen = "main"
+                        },
+                        icon = { Icon(Icons.Default.SmartToy, contentDescription = "IA") },
+                        label = { Text("IA", fontWeight = if ((currentScreen == "main" && currentTab == 3) || currentScreen == "chat") FontWeight.Bold else FontWeight.Normal) },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = EmeraldPrimary,
+                            selectedTextColor = EmeraldPrimary,
+                            indicatorColor = EmeraldPrimary.copy(alpha = 0.15f)
+                        )
+                    )
                 }
             }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
                 when (currentScreen) {
-                    "chat" -> ChatScreen(
-                        chatViewModel = chatViewModel,
-                        clarezaViewModel = viewModel,
-                        onOpenModelManagement = { currentScreen = "models" }
-                    )
                     "models" -> AIModelsScreen(
                         viewModel = aiModelsViewModel,
-                        onBack = { currentScreen = "chat" }
+                        onBack = {
+                            currentTab = 3
+                            currentScreen = "main"
+                        }
                     )
                     else -> {
                         when (currentTab) {
@@ -426,8 +440,7 @@ fun MainScreen(
                                 onAddTransfer = {
                                     editingTransaction = null
                                     transactionDialogType = "transfer"
-                                },
-                                onOpenChat = { currentScreen = "chat" }
+                                }
                             )
                             1 -> TransactionsScreen(
                                 state = state,
@@ -445,6 +458,11 @@ fun MainScreen(
                             2 -> ComparisonScreen(
                                 state = state,
                                 onSetBudgetMode = { mode -> viewModel.setBudgetMode(mode) }
+                            )
+                            3 -> ChatScreen(
+                                chatViewModel = chatViewModel,
+                                clarezaViewModel = viewModel,
+                                onOpenModelManagement = { currentScreen = "models" }
                             )
                         }
                     }
@@ -623,6 +641,18 @@ fun MainScreen(
                 TextButton(onClick = { showResetConfirmDialog = false }) {
                     Text("Cancelar")
                 }
+            }
+        )
+    }
+
+    // Welcome Dialog on launch if name is not set
+    var welcomeDismissed by remember { mutableStateOf(false) }
+    if (state.userName.isNullOrBlank() && !welcomeDismissed) {
+        WelcomeDialog(
+            initialName = "",
+            onSaveName = { name ->
+                viewModel.setUserName(name)
+                welcomeDismissed = true
             }
         )
     }

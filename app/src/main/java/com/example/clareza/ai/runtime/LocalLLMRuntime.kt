@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
  * Não utiliza simulações ou handles genéricos.
  */
 class LocalLLMRuntime(
-    override var memoryPolicy: ModelMemoryPolicy = ModelMemoryPolicy.AUTO_UNLOAD_AFTER_INFERENCE
+    override var memoryPolicy: ModelMemoryPolicy = ModelMemoryPolicy.KEEP_LOADED
 ) : LLMRuntime {
 
     companion object {

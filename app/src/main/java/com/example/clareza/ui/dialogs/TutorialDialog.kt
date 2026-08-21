@@ -34,7 +34,7 @@ fun TutorialDialog(
     val steps = listOf(
         TutorialStep(
             title = "Bem-vindo ao Clareza Financeira!",
-            description = "Um aplicativo offline e transparente, desenhado para trazer paz, consciência e fidelidade na administração do seu dinheiro.",
+            description = "Um aplicativo offline e transparente, desenhado para trazer clareza, consciência e tranquilidade na administração do seu dinheiro.",
             icon = "✨"
         ),
         TutorialStep(

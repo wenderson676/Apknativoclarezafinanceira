@@ -54,7 +54,7 @@ fun ActionMenuModal(
                 color = MaterialTheme.colorScheme.onSurface
             )
             Text(
-                text = "Mantenha sua mordomia financeira atualizada",
+                text = "Mantenha sua gestão financeira atualizada",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)

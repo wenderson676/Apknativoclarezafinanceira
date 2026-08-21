@@ -46,7 +46,8 @@ Java_com_example_clareza_ai_runtime_LocalLLMRuntime_nativeInitModelContext(
     }
 
     llama_context_params cparams = llama_context_default_params();
-    cparams.n_ctx = 1024;
+    cparams.n_ctx = 2048;
+    cparams.n_batch = 512;
     
     int hw_threads = static_cast<int>(std::thread::hardware_concurrency());
     int threads_to_use = (hw_threads > 0) ? std::min(4, std::max(2, hw_threads - 1)) : 4;
@@ -124,6 +125,10 @@ Java_com_example_clareza_ai_runtime_LocalLLMRuntime_nativeGenerateInference(
 
     const struct llama_vocab *vocab = llama_model_get_vocab(holder->model);
 
+    // Clear KV memory and reset sampler state for fresh generation
+    llama_memory_clear(llama_get_memory(holder->ctx), true);
+    llama_sampler_reset(holder->smpl);
+
     // Calculate token count
     int32_t n_tokens = -llama_tokenize(vocab, prompt_cstr, prompt_len, nullptr, 0, true, true);
     if (n_tokens <= 0) {
@@ -135,11 +140,15 @@ Java_com_example_clareza_ai_runtime_LocalLLMRuntime_nativeGenerateInference(
     llama_tokenize(vocab, prompt_cstr, prompt_len, tokens.data(), tokens.size(), true, true);
     env->ReleaseStringUTFChars(prompt, prompt_cstr);
 
-    // Initial batch decode
-    llama_batch batch = llama_batch_get_one(tokens.data(), static_cast<int32_t>(tokens.size()));
-    if (llama_decode(holder->ctx, batch) != 0) {
-        LOGE("Failed to decode prompt batch");
-        return env->NewStringUTF("");
+    // Chunked prompt decode (max 512 tokens per batch)
+    const int32_t batch_size = 512;
+    for (size_t i = 0; i < tokens.size(); i += batch_size) {
+        int32_t n_eval = static_cast<int32_t>(std::min(static_cast<size_t>(batch_size), tokens.size() - i));
+        llama_batch batch = llama_batch_get_one(&tokens[i], n_eval);
+        if (llama_decode(holder->ctx, batch) != 0) {
+            LOGE("Failed to decode prompt batch chunk at index %zu", i);
+            return env->NewStringUTF("");
+        }
     }
 
     std::string response_text;

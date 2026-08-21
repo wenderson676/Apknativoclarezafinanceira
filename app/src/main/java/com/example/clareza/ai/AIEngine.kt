@@ -37,7 +37,7 @@ class AIEngine(
             } else {
                 fallbackProvider.generateResponse(fullPrompt, request)
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Em caso de exceção no provedor primário, recorre com segurança ao provedor de regras determinístico
             fallbackProvider.generateResponse(fullPrompt, request)
         }

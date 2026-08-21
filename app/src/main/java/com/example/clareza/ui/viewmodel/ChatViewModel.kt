@@ -62,6 +62,29 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    fun autoLoadModelIfAvailable() {
+        viewModelScope.launch {
+            val available = aiController.availableModels.value
+            if (!aiController.offlineLLMProvider.isAvailable && available.isNotEmpty()) {
+                val modelToLoad = available.firstOrNull()
+                if (modelToLoad != null) {
+                    aiController.loadModel(modelToLoad.file)
+                }
+            }
+            refreshLLMStatus()
+        }
+    }
+
+    fun onChatClosed() {
+        cancelGeneration()
+        viewModelScope.launch {
+            if (aiController.offlineLLMProvider.isAvailable) {
+                aiController.unloadModel()
+            }
+            refreshLLMStatus()
+        }
+    }
+
     fun sendMessage(financialContext: FinancialContext?) {
         val text = _uiState.value.inputText.trim()
         if (text.isBlank() || _uiState.value.isGenerating) return
@@ -85,11 +108,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     activeModelName = modelName,
                     activeAction = if (response.suggestedAction?.type != AIActionType.NONE) response.suggestedAction else null
                 )
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 _uiState.value = _uiState.value.copy(
                     isGenerating = false,
                     errorMessage = "Erro ao processar mensagem: ${e.localizedMessage ?: "Falha desconhecida"}"
                 )
+            } finally {
+                _uiState.value = _uiState.value.copy(isGenerating = false)
             }
         }
     }

@@ -27,11 +27,25 @@ data class GGUFModelInfo(
 
 data class RecommendedModel(
     val name: String,
+    val fileName: String,
+    val downloadUrl: String,
     val sizeText: String,
     val format: String = "GGUF",
     val description: String,
     val targetDevice: String
 )
+
+data class DownloadProgress(
+    val fileName: String,
+    val bytesDownloaded: Long = 0L,
+    val totalBytes: Long = 0L,
+    val isDownloading: Boolean = false,
+    val isFinished: Boolean = false,
+    val error: String? = null
+) {
+    val progressPercent: Int
+        get() = if (totalBytes > 0) ((bytesDownloaded * 100) / totalBytes).toInt().coerceIn(0, 100) else 0
+}
 
 enum class ModelLoadingState {
     IDLE,
@@ -83,26 +97,35 @@ class AIController private constructor(private val context: Context) {
     private val _availableModels = MutableStateFlow<List<GGUFModelInfo>>(emptyList())
     val availableModels: StateFlow<List<GGUFModelInfo>> = _availableModels.asStateFlow()
 
+    private val _downloadProgresses = MutableStateFlow<Map<String, DownloadProgress>>(emptyMap())
+    val downloadProgresses: StateFlow<Map<String, DownloadProgress>> = _downloadProgresses.asStateFlow()
+
     private val _chatMessages = MutableStateFlow<List<AIChatMessage>>(emptyList())
     val chatMessages: StateFlow<List<AIChatMessage>> = _chatMessages.asStateFlow()
 
     val recommendedModels = listOf(
         RecommendedModel(
-            name = "LFM2 350M Instruct",
-            sizeText = "~350 MB",
-            description = "Modelo ultra leve focado em dispositivos móveis e baixos recursos de RAM.",
-            targetDevice = "Recomendado para Moto G9 Power e aparelhos de 2GB a 4GB RAM"
+            name = "SmolLM2 360M Instruct (Q4_K_M)",
+            fileName = "SmolLM2-360M-Instruct-Q4_K_M.gguf",
+            downloadUrl = "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf",
+            sizeText = "~258 MB",
+            description = "Modelo ultra leve e rápido, ideal para respostas objetivas em celulares.",
+            targetDevice = "Recomendado para aparelhos com 2GB a 4GB de RAM"
         ),
         RecommendedModel(
-            name = "Qwen2.5 0.5B Instruct",
-            sizeText = "~390 MB",
-            description = "Excelente raciocínio lógico e suporte multimodal a português.",
-            targetDevice = "Recomendado para smartphones intermediários (4GB RAM)"
+            name = "Qwen2.5 0.5B Instruct (Q4_K_M)",
+            fileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf",
+            downloadUrl = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
+            sizeText = "~398 MB",
+            description = "Ótimo raciocínio lógico e excelente suporte ao português.",
+            targetDevice = "Recomendado para celulares intermediários (4GB RAM)"
         ),
         RecommendedModel(
             name = "TinyLlama 1.1B Chat (Q4_K_M)",
-            sizeText = "~650 MB",
-            description = "Mais capacidade de conversação fluida e análise detalhada.",
+            fileName = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+            downloadUrl = "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+            sizeText = "~637 MB",
+            description = "Conversação fluida e análise financeira detalhada.",
             targetDevice = "Recomendado para aparelhos com 4GB+ RAM disponível"
         )
     )
@@ -110,6 +133,111 @@ class AIController private constructor(private val context: Context) {
     init {
         refreshAvailableModels()
         loadChatHistory()
+    }
+
+    suspend fun downloadModel(recModel: RecommendedModel): Result<File> = withContext(Dispatchers.IO) {
+        val destFile = File(modelsDir, recModel.fileName)
+        if (destFile.exists() && destFile.length() > 1024 * 1024) {
+            _downloadProgresses.value = _downloadProgresses.value + (recModel.fileName to DownloadProgress(
+                fileName = recModel.fileName,
+                bytesDownloaded = destFile.length(),
+                totalBytes = destFile.length(),
+                isDownloading = false,
+                isFinished = true
+            ))
+            refreshAvailableModels()
+            return@withContext Result.success(destFile)
+        }
+
+        val tempFile = File(modelsDir, "${recModel.fileName}.tmp")
+        _downloadProgresses.value = _downloadProgresses.value + (recModel.fileName to DownloadProgress(
+            fileName = recModel.fileName,
+            bytesDownloaded = 0,
+            totalBytes = 1,
+            isDownloading = true
+        ))
+
+        try {
+            var urlStr = recModel.downloadUrl
+            var connection: java.net.HttpURLConnection? = null
+            var redirects = 0
+            var success = false
+
+            while (redirects < 5 && !success) {
+                val url = java.net.URL(urlStr)
+                connection = url.openConnection() as java.net.HttpURLConnection
+                connection.instanceFollowRedirects = true
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 ClarezaApp/1.0")
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
+
+                val statusCode = connection.responseCode
+                if (statusCode in 300..399) {
+                    val newUrl = connection.getHeaderField("Location")
+                    if (!newUrl.isNullOrBlank()) {
+                        urlStr = newUrl
+                        redirects++
+                        continue
+                    }
+                }
+
+                if (statusCode !in 200..299) {
+                    throw Exception("Erro HTTP $statusCode ao baixar modelo de IA.")
+                }
+
+                val contentLength = connection.contentLengthLong
+                var totalBytesRead = 0L
+
+                connection.inputStream.use { input ->
+                    java.io.FileOutputStream(tempFile).use { output ->
+                        val buffer = ByteArray(16384)
+                        var bytesRead: Int
+                        var lastProgressUpdate = 0L
+
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            output.write(buffer, 0, bytesRead)
+                            totalBytesRead += bytesRead
+
+                            val now = System.currentTimeMillis()
+                            if (now - lastProgressUpdate > 200) {
+                                lastProgressUpdate = now
+                                _downloadProgresses.value = _downloadProgresses.value + (recModel.fileName to DownloadProgress(
+                                    fileName = recModel.fileName,
+                                    bytesDownloaded = totalBytesRead,
+                                    totalBytes = if (contentLength > 0) contentLength else 1L,
+                                    isDownloading = true
+                                ))
+                            }
+                        }
+                    }
+                }
+                success = true
+            }
+
+            if (tempFile.exists()) {
+                if (destFile.exists()) destFile.delete()
+                tempFile.renameTo(destFile)
+            }
+
+            _downloadProgresses.value = _downloadProgresses.value + (recModel.fileName to DownloadProgress(
+                fileName = recModel.fileName,
+                bytesDownloaded = destFile.length(),
+                totalBytes = destFile.length(),
+                isDownloading = false,
+                isFinished = true
+            ))
+
+            refreshAvailableModels()
+            Result.success(destFile)
+        } catch (e: Exception) {
+            if (tempFile.exists()) tempFile.delete()
+            _downloadProgresses.value = _downloadProgresses.value + (recModel.fileName to DownloadProgress(
+                fileName = recModel.fileName,
+                isDownloading = false,
+                error = e.localizedMessage ?: "Erro ao realizar download."
+            ))
+            Result.failure(e)
+        }
     }
 
     fun refreshAvailableModels() {

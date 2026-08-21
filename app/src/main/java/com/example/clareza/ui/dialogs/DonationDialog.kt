@@ -90,7 +90,7 @@ fun DonationDialog(
                 )
 
                 Text(
-                    text = "O Clareza Financeira é 100% gratuito, sem anúncios invasivos e focado na sua liberdade financeira. Se este app tem te abençoado, considere apoiar com qualquer quantia via PIX!",
+                    text = "O Clareza Financeira é 100% gratuito, sem anúncios invasivos e focado na sua liberdade financeira. Se este aplicativo tem te ajudado na sua organização, considere apoiar com qualquer quantia via PIX!",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

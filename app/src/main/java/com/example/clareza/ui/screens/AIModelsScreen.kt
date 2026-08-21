@@ -440,6 +440,10 @@ fun AIModelsScreen(
             )
 
             uiState.recommendedModels.forEach { rec ->
+                val existingModel = uiState.availableModels.firstOrNull { it.file.name == rec.fileName || it.name == rec.fileName }
+                val downloadProgress = uiState.downloadProgresses[rec.fileName]
+                val isDownloading = downloadProgress?.isDownloading == true
+
                 Surface(
                     shape = RoundedCornerShape(16.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -448,7 +452,7 @@ fun AIModelsScreen(
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -459,8 +463,10 @@ fun AIModelsScreen(
                                 text = rec.name,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.weight(1f)
                             )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
@@ -486,6 +492,103 @@ fun AIModelsScreen(
                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, fontWeight = FontWeight.SemiBold),
                             color = EmeraldPrimary
                         )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        // DOWNLOAD / LOAD STATUS & ACTION BUTTON
+                        when {
+                            isDownloading -> {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(
+                                            text = "Baixando modelo... ${downloadProgress?.progressPercent ?: 0}%",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EmeraldPrimary
+                                        )
+                                        val downloadedMb = (downloadProgress?.bytesDownloaded ?: 0L) / (1024.0 * 1024.0)
+                                        Text(
+                                            text = String.format("%.1f MB", downloadedMb),
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    LinearProgressIndicator(
+                                        progress = { (downloadProgress?.progressPercent ?: 0) / 100f },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(6.dp)
+                                            .clip(RoundedCornerShape(3.dp)),
+                                        color = EmeraldPrimary,
+                                        trackColor = EmeraldPrimary.copy(alpha = 0.2f)
+                                    )
+                                }
+                            }
+
+                            existingModel != null -> {
+                                val isLoadedInRam = existingModel.name == uiState.activeModelName
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = EmeraldPrimary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = if (isLoadedInRam) "Carregado na RAM" else "Baixado e Salvo",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = EmeraldPrimary
+                                        )
+                                    }
+
+                                    if (!isLoadedInRam) {
+                                        Button(
+                                            onClick = { viewModel.loadModel(existingModel.file) },
+                                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                            shape = RoundedCornerShape(10.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("Carregar na RAM", fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            }
+
+                            else -> {
+                                Button(
+                                    onClick = { viewModel.downloadAndLoadModel(rec) },
+                                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Download,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Baixar Modelo no APK",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }

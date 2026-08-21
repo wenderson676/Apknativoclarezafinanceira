@@ -184,13 +184,13 @@ object FinanceUtils {
     )
 
     val VERSES = listOf(
-        "\"O prudente percebe o perigo e busca refúgio; o inexperiente segue adiante e sofre as consequências.\" - Provérbios 27:12",
-        "\"Os planos bem elaborados levam à fartura; mas o apressado sempre acaba na miséria.\" - Provérbios 21:5",
-        "\"O rico domina sobre o pobre, e o que toma emprestado é servo do que empresta.\" - Provérbios 22:7",
-        "\"Honra ao Senhor com os teus bens e com as primícias de toda a tua renda.\" - Provérbios 3:9",
-        "\"Quem é fiel no pouco também é fiel no muito.\" - Lucas 16:10",
-        "\"Não andeis ansiosos pela vossa vida, quanto ao que haveis de comer ou beber... vosso Pai sabe que precisais.\" - Mateus 6:25,32",
-        "\"Mais vale o pouco com o temor do Senhor do que um grande tesouro onde há inquietação.\" - Provérbios 15:16"
+        "\"O planejamento financeiro transforma metas distantes em conquistas graduais e sustentáveis.\"",
+        "\"Gastar menos do que se ganha é a regra fundamental para construir liberdade e tranquilidade.\"",
+        "\"Uma reserva de emergência protege seu futuro contra imprevistos sem comprometer seus projetos.\"",
+        "\"Controlar pequenas despesas diárias evita grandes surpresas no orçamento no fim do mês.\"",
+        "\"Evitar dívidas com altos juros é o investimento de maior retorno imediato para sua saúde financeira.\"",
+        "\"Poupar com consistência vale muito mais do que esperar pelo momento ideal para começar.\"",
+        "\"A disciplina no orçamento de hoje é a tranquilidade e independência do seu amanhã.\""
     )
 
     fun getRandomVerse(): String {
