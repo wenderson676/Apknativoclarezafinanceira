@@ -56,7 +56,7 @@ fun ChatScreen(
     DisposableEffect(Unit) {
         chatViewModel.autoLoadModelIfAvailable()
         onDispose {
-            chatViewModel.onChatClosed()
+            chatViewModel.refreshLLMStatus()
         }
     }
 

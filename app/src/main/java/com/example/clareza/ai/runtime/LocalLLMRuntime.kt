@@ -78,6 +78,7 @@ class LocalLLMRuntime(
 
     override suspend fun loadModel(modelFile: File): Result<Unit> = withContext(Dispatchers.IO) {
         if (!isNativeLibraryLoaded) {
+            android.util.Log.e("ClarezaAI", "[LocalLLMRuntime] native library libllama_jni.so not available.")
             return@withContext Result.failure(
                 IllegalStateException("A biblioteca nativa llama_jni não está disponível no dispositivo.")
             )
@@ -85,6 +86,7 @@ class LocalLLMRuntime(
 
         val (isValid, format) = validateModelFile(modelFile)
         if (!isValid || format != ModelFormat.GGUF) {
+            android.util.Log.e("ClarezaAI", "[LocalLLMRuntime] File ${modelFile.name} is invalid or not GGUF header.")
             return@withContext Result.failure(
                 IllegalArgumentException("Arquivo incompatível ou corrompido para o Runtime GGUF: ${modelFile.name}")
             )
@@ -95,13 +97,16 @@ class LocalLLMRuntime(
                 unloadModelInternal()
             }
 
+            android.util.Log.d("ClarezaAI", "[LocalLLMRuntime] Initializing native model context for ${modelFile.name}...")
             val handle = nativeInitModelContext(modelFile.absolutePath)
             if (handle != 0L) {
+                android.util.Log.i("ClarezaAI", "[LocalLLMRuntime] Native context allocated successfully. Handle: $handle")
                 this@LocalLLMRuntime.activeFile = modelFile
                 this@LocalLLMRuntime.nativeContextHandle = handle
                 this@LocalLLMRuntime.loadedInRam = true
                 Result.success(Unit)
             } else {
+                android.util.Log.w("ClarezaAI", "[LocalLLMRuntime] nativeInitModelContext returned 0L (e.g., STUB in use or allocation failed).")
                 this@LocalLLMRuntime.loadedInRam = false
                 this@LocalLLMRuntime.nativeContextHandle = 0L
                 Result.failure(
@@ -109,6 +114,7 @@ class LocalLLMRuntime(
                 )
             }
         } catch (e: Exception) {
+            android.util.Log.e("ClarezaAI", "[LocalLLMRuntime] Exception in loadModel: ${e.localizedMessage}")
             this@LocalLLMRuntime.loadedInRam = false
             this@LocalLLMRuntime.nativeContextHandle = 0L
             Result.failure(e)
@@ -122,6 +128,7 @@ class LocalLLMRuntime(
     private fun unloadModelInternal() {
         if (nativeContextHandle != 0L && isNativeLibraryLoaded) {
             try {
+                android.util.Log.d("ClarezaAI", "[LocalLLMRuntime] Freeing native model context...")
                 nativeFreeModelContext(nativeContextHandle)
             } catch (e: Exception) {
                 // Ignore native cleanup exception
@@ -133,23 +140,26 @@ class LocalLLMRuntime(
     }
 
     override suspend fun onLowMemory(): Unit = withContext(Dispatchers.IO) {
-        // Em situações de emergência de pouca memória informadas pelo SO Android,
-        // descarrega o modelo da RAM nativa incondicionalmente para evitar OOM / crash do app.
         unloadModelInternal()
     }
 
     override suspend fun generateInference(prompt: String): Result<String> = withContext(Dispatchers.Default) {
         if (!isLoaded || nativeContextHandle == 0L || !isNativeLibraryLoaded) {
+            android.util.Log.w("ClarezaAI", "[LocalLLMRuntime] generateInference called but isLoaded=$isLoaded, handle=$nativeContextHandle")
             return@withContext Result.failure(IllegalStateException("Nenhum modelo GGUF está carregado na memória nativa."))
         }
 
         try {
+            android.util.Log.d("ClarezaAI", "[LocalLLMRuntime] Calling nativeGenerateInference with prompt length ${prompt.length}...")
             val rawOutput = nativeGenerateInference(nativeContextHandle, prompt)
             if (rawOutput.isNullOrBlank()) {
+                android.util.Log.w("ClarezaAI", "[LocalLLMRuntime] nativeGenerateInference returned empty/null output.")
                 return@withContext Result.failure(
                     IllegalStateException("O runtime nativo llama.cpp não retornou tokens de resposta válidos.")
                 )
             }
+
+            android.util.Log.d("ClarezaAI", "[LocalLLMRuntime] nativeGenerateInference succeeded! Length: ${rawOutput.length}")
 
             if (memoryPolicy == ModelMemoryPolicy.AUTO_UNLOAD_AFTER_INFERENCE) {
                 unloadModelInternal()
@@ -157,6 +167,7 @@ class LocalLLMRuntime(
 
             Result.success(rawOutput)
         } catch (e: Exception) {
+            android.util.Log.e("ClarezaAI", "[LocalLLMRuntime] Exception in generateInference: ${e.localizedMessage}")
             Result.failure(e)
         }
     }

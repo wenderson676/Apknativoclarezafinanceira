@@ -89,6 +89,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
         val text = _uiState.value.inputText.trim()
         if (text.isBlank() || _uiState.value.isGenerating) return
 
+        android.util.Log.d("ClarezaAI", "[ChatViewModel] sendMessage triggered: \"$text\"")
+
         _uiState.value = _uiState.value.copy(
             inputText = "",
             isGenerating = true,
@@ -102,6 +104,8 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                 val isLoaded = aiController.offlineLLMProvider.isAvailable
                 val modelName = aiController.offlineLLMProvider.getActiveModelName()
 
+                android.util.Log.d("ClarezaAI", "[ChatViewModel] Received response. Updating uiState...")
+
                 _uiState.value = _uiState.value.copy(
                     isGenerating = false,
                     isLLMLoaded = isLoaded,
@@ -109,17 +113,20 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
                     activeAction = if (response.suggestedAction?.type != AIActionType.NONE) response.suggestedAction else null
                 )
             } catch (e: Throwable) {
+                android.util.Log.e("ClarezaAI", "[ChatViewModel] Error in sendMessage coroutine: ${e.localizedMessage}")
                 _uiState.value = _uiState.value.copy(
                     isGenerating = false,
                     errorMessage = "Erro ao processar mensagem: ${e.localizedMessage ?: "Falha desconhecida"}"
                 )
             } finally {
+                android.util.Log.d("ClarezaAI", "[ChatViewModel] Resetting isGenerating = false in finally block.")
                 _uiState.value = _uiState.value.copy(isGenerating = false)
             }
         }
     }
 
     fun cancelGeneration() {
+        android.util.Log.d("ClarezaAI", "[ChatViewModel] User cancelled generation.")
         activeGenerationJob?.cancel()
         _uiState.value = _uiState.value.copy(
             isGenerating = false,

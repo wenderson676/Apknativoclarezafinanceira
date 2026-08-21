@@ -4,6 +4,7 @@
 
 #define LOG_TAG "LlamaJNIStub"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 
 extern "C" {
 
@@ -12,7 +13,7 @@ Java_com_example_clareza_ai_runtime_LocalLLMRuntime_nativeInitModelContext(
         JNIEnv *env,
         jobject thiz,
         jstring model_path) {
-    LOGI("llama_jni stub init context");
+    LOGW("llama_jni stub active: llama.cpp C++ source not bundled in APK. Returning 0L handle to fallback to RuleBasedOfflineProvider.");
     return 0L;
 }
 
@@ -30,8 +31,9 @@ Java_com_example_clareza_ai_runtime_LocalLLMRuntime_nativeGenerateInference(
         jobject thiz,
         jlong handle,
         jstring prompt) {
-    LOGI("llama_jni stub generate inference");
+    LOGW("llama_jni stub generate inference called on handle 0L. Returning empty string for instant fallback.");
     return env->NewStringUTF("");
 }
 
 }
+

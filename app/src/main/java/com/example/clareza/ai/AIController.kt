@@ -343,6 +343,7 @@ class AIController private constructor(private val context: Context) {
         userMessage: String,
         financialContext: FinancialContext?
     ): AIResponse = withContext(Dispatchers.Default) {
+        android.util.Log.d("ClarezaAI", "[AIController] Processing user message: \"$userMessage\"")
 
         // Construct short memory from recent chat history
         val recentHistory = _chatMessages.value.takeLast(6)
@@ -368,6 +369,8 @@ class AIController private constructor(private val context: Context) {
         val finalList = _chatMessages.value + assistantMsg
         _chatMessages.value = finalList
         saveChatHistory(finalList)
+
+        android.util.Log.d("ClarezaAI", "[AIController] User message processed successfully.")
 
         response
     }

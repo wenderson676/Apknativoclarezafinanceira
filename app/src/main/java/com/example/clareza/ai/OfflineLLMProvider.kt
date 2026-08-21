@@ -75,18 +75,23 @@ class OfflineLLMProvider(
 
         // Se o modelo LLM não estiver carregado na RAM, utiliza o motor determinístico de regras como fallback
         if (!isAvailable) {
+            android.util.Log.d("ClarezaAI", "[OfflineLLMProvider] LLM not available/loaded. Using RuleBasedOfflineProvider fallback immediately.")
             return ruleBasedFallback.generateResponse(prompt, request)
         }
 
-        // Execução no Runtime de LLM Local com Timeout de segurança (30s)
+        android.util.Log.d("ClarezaAI", "[OfflineLLMProvider] LLM is available. Running local inference with 15s timeout...")
+
+        // Execução no Runtime de LLM Local com Timeout de segurança (15s)
         return try {
-            val inferenceResult = withTimeoutOrNull(30000L) {
+            val inferenceResult = withTimeoutOrNull(15000L) {
                 runtime.generateInference(prompt)
             }
             if (inferenceResult != null && inferenceResult.isSuccess && inferenceResult.getOrNull()?.isNotBlank() == true) {
                 val llmOutputText = inferenceResult.getOrThrow().trim()
                 val suggestedAction = AIActionParser.extractActionFromText(llmOutputText)
                 val latency = System.currentTimeMillis() - startTime
+
+                android.util.Log.d("ClarezaAI", "[OfflineLLMProvider] Inference successful in ${latency}ms.")
 
                 AIResponse(
                     text = llmOutputText,
@@ -95,11 +100,13 @@ class OfflineLLMProvider(
                     latencyMs = latency
                 )
             } else {
+                android.util.Log.w("ClarezaAI", "[OfflineLLMProvider] Inference returned empty/null result or timed out. Falling back to RuleBasedOfflineProvider.")
                 val fallbackResponse = ruleBasedFallback.generateResponse(prompt, request)
                 val latency = System.currentTimeMillis() - startTime
                 fallbackResponse.copy(latencyMs = latency)
             }
         } catch (e: Throwable) {
+            android.util.Log.e("ClarezaAI", "[OfflineLLMProvider] Exception during inference: ${e.localizedMessage}. Falling back to RuleBasedOfflineProvider.")
             val fallbackResponse = ruleBasedFallback.generateResponse(prompt, request)
             val latency = System.currentTimeMillis() - startTime
             fallbackResponse.copy(latencyMs = latency)
