@@ -8,15 +8,25 @@ import kotlinx.coroutines.withContext
 /**
  * Implementação do Runtime Local de LLM focado na arquitetura GGUF (Llama.cpp).
  *
- * Inclui:
- * - Validação rigorosa do cabeçalho binário Magic Bytes do formato GGUF ("GGUF" = 0x46554747)
- * - Integração com a ponte nativa JNI
- * - Gerenciamento e reação ativa a eventos de pouca memória RAM (Low Memory / Trim Memory)
- * - Política de descarregamento automático ideal para aparelhos com RAM limitada (ex: Moto G9 Power)
+ * Conectado diretamente à biblioteca nativa libllama_jni.so via NDK/JNI.
+ * Não utiliza simulações ou handles genéricos.
  */
 class LocalLLMRuntime(
     override var memoryPolicy: ModelMemoryPolicy = ModelMemoryPolicy.AUTO_UNLOAD_AFTER_INFERENCE
 ) : LLMRuntime {
+
+    companion object {
+        private var isNativeLibraryLoaded = false
+
+        init {
+            try {
+                System.loadLibrary("llama_jni")
+                isNativeLibraryLoaded = true
+            } catch (e: Throwable) {
+                isNativeLibraryLoaded = false
+            }
+        }
+    }
 
     override val runtimeName: String = "Engine LLM Local GGUF (Llama.cpp Native)"
     override val supportedFormats: Set<ModelFormat> = setOf(ModelFormat.GGUF)
@@ -26,7 +36,7 @@ class LocalLLMRuntime(
     private var loadedInRam: Boolean = false
 
     override val isLoaded: Boolean
-        get() = loadedInRam && activeFile?.exists() == true && nativeContextHandle != 0L
+        get() = isNativeLibraryLoaded && loadedInRam && activeFile?.exists() == true && nativeContextHandle != 0L
 
     override val loadedModelFile: File?
         get() = activeFile
@@ -37,13 +47,11 @@ class LocalLLMRuntime(
     override fun validateModelFile(modelFile: File): Pair<Boolean, ModelFormat> {
         if (!modelFile.exists() || !modelFile.isFile) return Pair(false, ModelFormat.UNKNOWN)
         
-        // Verificar se é formato .gguf por extensão e tamanho mínimo (>= 10MB)
         val ext = modelFile.extension.lowercase()
-        val minSizeBytes = 10 * 1024 * 1024
+        val minSizeBytes = 10 * 1024 * 1024 // 10MB
         if (modelFile.length() < minSizeBytes) return Pair(false, ModelFormat.UNKNOWN)
 
         if (ext == "gguf") {
-            // Verificar Magic Header do formato GGUF
             val isGgufHeaderValid = checkGgufMagicHeader(modelFile)
             if (isGgufHeaderValid) {
                 return Pair(true, ModelFormat.GGUF)
@@ -59,7 +67,6 @@ class LocalLLMRuntime(
                 val header = ByteArray(4)
                 val bytesRead = stream.read(header)
                 if (bytesRead == 4) {
-                    // Magic bytes GGUF em ASCII: 'G', 'G', 'U', 'F' (0x47, 0x47, 0x55, 0x46)
                     val magicStr = String(header, Charsets.US_ASCII)
                     magicStr == "GGUF"
                 } else false
@@ -70,6 +77,12 @@ class LocalLLMRuntime(
     }
 
     override suspend fun loadModel(modelFile: File): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!isNativeLibraryLoaded) {
+            return@withContext Result.failure(
+                IllegalStateException("A biblioteca nativa llama_jni não está disponível no dispositivo.")
+            )
+        }
+
         val (isValid, format) = validateModelFile(modelFile)
         if (!isValid || format != ModelFormat.GGUF) {
             return@withContext Result.failure(
@@ -78,12 +91,10 @@ class LocalLLMRuntime(
         }
 
         try {
-            // Liberar qualquer modelo carregado previamente
             if (loadedInRam) {
                 unloadModelInternal()
             }
 
-            // Tentar alocação no contexto nativo do C++/JNI
             val handle = nativeInitModelContext(modelFile.absolutePath)
             if (handle != 0L) {
                 this@LocalLLMRuntime.activeFile = modelFile
@@ -91,11 +102,11 @@ class LocalLLMRuntime(
                 this@LocalLLMRuntime.loadedInRam = true
                 Result.success(Unit)
             } else {
-                // Fallback simulação de alocação de ponteiro em ambiente sem biblioteca .so carregada
-                this@LocalLLMRuntime.activeFile = modelFile
-                this@LocalLLMRuntime.nativeContextHandle = System.currentTimeMillis()
-                this@LocalLLMRuntime.loadedInRam = true
-                Result.success(Unit)
+                this@LocalLLMRuntime.loadedInRam = false
+                this@LocalLLMRuntime.nativeContextHandle = 0L
+                Result.failure(
+                    IllegalStateException("O runtime nativo llama.cpp não conseguiu alocar o modelo na memória RAM.")
+                )
             }
         } catch (e: Exception) {
             this@LocalLLMRuntime.loadedInRam = false
@@ -109,11 +120,11 @@ class LocalLLMRuntime(
     }
 
     private fun unloadModelInternal() {
-        if (nativeContextHandle != 0L) {
+        if (nativeContextHandle != 0L && isNativeLibraryLoaded) {
             try {
                 nativeFreeModelContext(nativeContextHandle)
             } catch (e: Exception) {
-                // Ignorar falha em ambiente sem .so nativo
+                // Ignore native cleanup exception
             }
         }
         this@LocalLLMRuntime.loadedInRam = false
@@ -128,47 +139,30 @@ class LocalLLMRuntime(
     }
 
     override suspend fun generateInference(prompt: String): Result<String> = withContext(Dispatchers.Default) {
-        if (!isLoaded) {
-            return@withContext Result.failure(IllegalStateException("Nenhum modelo GGUF está carregado na RAM."))
+        if (!isLoaded || nativeContextHandle == 0L || !isNativeLibraryLoaded) {
+            return@withContext Result.failure(IllegalStateException("Nenhum modelo GGUF está carregado na memória nativa."))
         }
 
         try {
-            val modelName = activeFile?.name ?: "modelo local"
-            
-            // Tentar executar inferência pela ponte JNI nativa
-            val outputText = try {
-                val rawOutput = nativeGenerateInference(nativeContextHandle, prompt)
-                if (!rawOutput.isNullOrBlank()) rawOutput else "Resposta gerada localmente pelo modelo GGUF $modelName."
-            } catch (e: Exception) {
-                "Resposta gerada localmente pelo modelo GGUF $modelName."
+            val rawOutput = nativeGenerateInference(nativeContextHandle, prompt)
+            if (rawOutput.isNullOrBlank()) {
+                return@withContext Result.failure(
+                    IllegalStateException("O runtime nativo llama.cpp não retornou tokens de resposta válidos.")
+                )
             }
 
-            // Aplicar política de memória de descarregamento automático
             if (memoryPolicy == ModelMemoryPolicy.AUTO_UNLOAD_AFTER_INFERENCE) {
                 unloadModelInternal()
             }
 
-            Result.success(outputText)
+            Result.success(rawOutput)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    // --- Métodos de Ponte JNI Nativas (llama.cpp JNI) ---
-    private fun nativeInitModelContext(modelPath: String): Long {
-        return try {
-            // Gancho para carregamento da biblioteca nativa libllama.so se compilada no APK
-            0L
-        } catch (e: Throwable) {
-            0L
-        }
-    }
-
-    private fun nativeFreeModelContext(handle: Long) {
-        // Liberação de KV-Cache, Tensores e ponteiros de memória em C++
-    }
-
-    private fun nativeGenerateInference(handle: Long, prompt: String): String? {
-        return null
-    }
+    // --- Funções de Ponte JNI Nativas (llama_jni) ---
+    private external fun nativeInitModelContext(modelPath: String): Long
+    private external fun nativeFreeModelContext(handle: Long)
+    private external fun nativeGenerateInference(handle: Long, prompt: String): String?
 }

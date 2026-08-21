@@ -10,6 +10,8 @@ android {
     namespace = "com.example.clareza"
     compileSdk = 35
 
+    ndkVersion = "26.1.10909125"
+
     defaultConfig {
         applicationId = "com.aistudio.clarezafinanceira.mordomia"
         minSdk = 26
@@ -18,6 +20,23 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        externalNativeBuild {
+            cmake {
+                cppFlags("-std=c++17")
+                arguments("-DGGML_OPENMP=OFF", "-DGGML_NATIVE=OFF")
+            }
+        }
+        ndk {
+            abiFilters.addAll(listOf("arm64-v8a", "x86_64"))
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     signingConfigs {
