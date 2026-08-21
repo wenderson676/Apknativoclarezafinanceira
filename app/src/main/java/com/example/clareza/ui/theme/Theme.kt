@@ -16,51 +16,60 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
-// Emerald & Slate branding palette
-val EmeraldPrimary = Color(0xFF059669)
-val EmeraldDark = Color(0xFF047857)
-val EmeraldLight = Color(0xFF10B981)
-val EmeraldContainerLight = Color(0xFFD1FAE5)
-val EmeraldContainerDark = Color(0xFF064E3B)
+// Emerald, Teal & Slate premium branding palette
+val EmeraldPrimary = Color(0xFF0D9488)
+val EmeraldDark = Color(0xFF042F2E)
+val EmeraldLight = Color(0xFF14B8A6)
+val EmeraldContainerLight = Color(0xFFCCFBF1)
+val EmeraldContainerDark = Color(0xFF115E59)
+
+val TealGradientStart = Color(0xFF064E3B)
+val TealGradientEnd = Color(0xFF0F766E)
 
 val Slate950 = Color(0xFF020617)
-val Slate900 = Color(0xFF0F172A)
+val Slate900 = Color(0xFF0B1120)
 val Slate800 = Color(0xFF1E293B)
 val Slate700 = Color(0xFF334155)
+val Slate600 = Color(0xFF475569)
+val Slate400 = Color(0xFF94A3B8)
 val Slate100 = Color(0xFFF1F5F9)
 val Slate50 = Color(0xFFF8FAFC)
 
 val RoseExpense = Color(0xFFF43F5E)
+val RoseExpenseLight = Color(0xFFFFE4E6)
 val AmberPending = Color(0xFFF59E0B)
+val AmberPendingLight = Color(0xFFFEF3C7)
 val IndigoTransfer = Color(0xFF6366F1)
+val IndigoTransferLight = Color(0xFFE0E7FF)
 
 private val LightColorScheme = lightColorScheme(
     primary = EmeraldPrimary,
     onPrimary = Color.White,
     primaryContainer = EmeraldContainerLight,
-    onPrimaryContainer = Color(0xFF064E3B),
+    onPrimaryContainer = Color(0xFF042F2E),
     secondary = IndigoTransfer,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE0E7FF),
-    onSecondaryContainer = Color(0xFF3730A3),
+    secondaryContainer = IndigoTransferLight,
+    onSecondaryContainer = Color(0xFF312E81),
     tertiary = AmberPending,
     onTertiary = Color.White,
     background = Slate50,
     onBackground = Slate900,
     surface = Color.White,
     onSurface = Slate900,
-    surfaceVariant = Color(0xFFF1F5F9),
-    onSurfaceVariant = Slate700,
-    outline = Color(0xFFCBD5E1),
+    surfaceVariant = Color(0xFFF8FAFC),
+    onSurfaceVariant = Slate600,
+    outline = Color(0xFFE2E8F0),
+    outlineVariant = Color(0xFFF1F5F9),
     error = RoseExpense,
     onError = Color.White
 )
 
 private val DarkColorScheme = darkColorScheme(
     primary = EmeraldLight,
-    onPrimary = Color(0xFF064E3B),
+    onPrimary = Color(0xFF042F2E),
     primaryContainer = EmeraldContainerDark,
-    onPrimaryContainer = Color(0xFFA7F3D0),
+    onPrimaryContainer = Color(0xFF99F6E4),
     secondary = Color(0xFF818CF8),
     onSecondary = Color(0xFF1E1B4B),
     secondaryContainer = Color(0xFF312E81),
@@ -72,8 +81,9 @@ private val DarkColorScheme = darkColorScheme(
     surface = Slate900,
     onSurface = Slate100,
     surfaceVariant = Slate800,
-    onSurfaceVariant = Color(0xFF94A3B8),
+    onSurfaceVariant = Slate400,
     outline = Color(0xFF334155),
+    outlineVariant = Color(0xFF1E293B),
     error = RoseExpense,
     onError = Color.White
 )

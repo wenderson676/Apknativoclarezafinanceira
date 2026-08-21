@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -71,7 +72,7 @@ fun MainScreen(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier.width(310.dp),
+                modifier = Modifier.width(320.dp),
                 drawerContainerColor = MaterialTheme.colorScheme.surface
             ) {
                 Column(
@@ -80,12 +81,12 @@ fun MainScreen(
                         .padding(20.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        // Profile & App branding
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        // User Profile & App Branding Card
                         Surface(
                             onClick = { showUserNameDialog = true },
-                            shape = RoundedCornerShape(18.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
@@ -93,113 +94,123 @@ fun MainScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                        .background(EmeraldPrimary),
-                                    contentAlignment = Alignment.Center
+                                Surface(
+                                    shape = CircleShape,
+                                    color = EmeraldPrimary,
+                                    modifier = Modifier.size(46.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.AccountBalanceWallet,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(24.dp)
-                                    )
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text("✨", fontSize = 22.sp)
+                                    }
                                 }
-                                Column {
+                                Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = state.userName?.ifBlank { "Definir Nome" } ?: "Paz e Graça",
+                                        text = state.userName?.ifBlank { "Definir Meu Nome" } ?: "Paz e Graça",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 15.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1
                                     )
                                     Text(
-                                        text = "Toque para alterar",
+                                        text = "Toque para alterar nome",
                                         style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
+                                Icon(
+                                    imageVector = Icons.Default.ChevronRight,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(20.dp)
+                                )
                             }
                         }
 
-                        HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                         // Navigation Items
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Tune, contentDescription = null, tint = EmeraldPrimary) },
-                            label = { Text("Modelo de Orçamento (${state.budgetMode})") },
+                            label = { Text("Modelo de Orçamento (${state.budgetMode})", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
                             selected = false,
                             onClick = {
                                 scope.launch { drawerState.close() }
                                 showBudgetModeDialog = true
-                            }
+                            },
+                            shape = RoundedCornerShape(12.dp)
                         )
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.AccountBalance, contentDescription = null) },
-                            label = { Text("Minhas Contas & Carteiras") },
+                            label = { Text("Minhas Contas & Carteiras", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
                             selected = false,
                             onClick = {
                                 scope.launch { drawerState.close() }
                                 showAccountsDialog = true
-                            }
+                            },
+                            shape = RoundedCornerShape(12.dp)
                         )
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Backup, contentDescription = null) },
-                            label = { Text("Backup & Restauração") },
+                            label = { Text("Backup & Restauração (Offline)", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
                             selected = false,
                             onClick = {
                                 scope.launch { drawerState.close() }
                                 showBackupDialog = true
-                            }
+                            },
+                            shape = RoundedCornerShape(12.dp)
                         )
 
                         NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.Info, contentDescription = null) },
-                            label = { Text("Tutorial & Princípios") },
+                            icon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
+                            label = { Text("Tutorial & Princípios Bíblicos", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
                             selected = false,
                             onClick = {
                                 scope.launch { drawerState.close() }
                                 showTutorialDialog = true
-                            }
+                            },
+                            shape = RoundedCornerShape(12.dp)
                         )
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Chat, contentDescription = null) },
-                            label = { Text("Fale Conosco (WhatsApp)") },
+                            label = { Text("Fale Conosco (WhatsApp)", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
                             selected = false,
                             onClick = {
                                 scope.launch { drawerState.close() }
                                 showFeedbackDialog = true
-                            }
+                            },
+                            shape = RoundedCornerShape(12.dp)
                         )
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Favorite, contentDescription = null, tint = RoseExpense) },
-                            label = { Text("Apoiar com PIX") },
+                            label = { Text("Apoiar com PIX", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
                             selected = false,
                             onClick = {
                                 scope.launch { drawerState.close() }
                                 showDonationDialog = true
-                            }
+                            },
+                            shape = RoundedCornerShape(12.dp)
                         )
 
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.DeleteForever, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
-                            label = { Text("Zerar Todos os Dados", color = MaterialTheme.colorScheme.error) },
+                            label = { Text("Zerar Todos os Dados", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error) },
                             selected = false,
                             onClick = {
                                 scope.launch { drawerState.close() }
                                 showResetConfirmDialog = true
-                            }
+                            },
+                            shape = RoundedCornerShape(12.dp)
                         )
                     }
 
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
                             text = "Clareza Financeira v1.0",
@@ -220,22 +231,45 @@ fun MainScreen(
             topBar = {
                 TopAppBar(
                     title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(vertical = 4.dp)
                         ) {
-                            IconButton(onClick = { viewModel.previousMonth() }) {
-                                Icon(Icons.Default.ChevronLeft, contentDescription = "Mês Anterior")
-                            }
-                            Text(
-                                text = monthTitle,
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier = Modifier.padding(horizontal = 4.dp)
-                            )
-                            IconButton(onClick = { viewModel.nextMonth() }) {
-                                Icon(Icons.Default.ChevronRight, contentDescription = "Próximo Mês")
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { viewModel.previousMonth() },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChevronLeft,
+                                        contentDescription = "Mês Anterior",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Text(
+                                    text = monthTitle,
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 13.sp
+                                    ),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 6.dp)
+                                )
+                                IconButton(
+                                    onClick = { viewModel.nextMonth() },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChevronRight,
+                                        contentDescription = "Próximo Mês",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
                         }
                     },
@@ -301,7 +335,7 @@ fun MainScreen(
                     NavigationBarItem(
                         selected = currentTab == 2,
                         onClick = { currentTab = 2 },
-                        icon = { Icon(Icons.Default.BarChart, contentDescription = "Análise") },
+                        icon = { Icon(Icons.Default.Insights, contentDescription = "Análise") },
                         label = { Text("Análise", fontWeight = if (currentTab == 2) FontWeight.Bold else FontWeight.Normal) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EmeraldPrimary,
@@ -332,7 +366,19 @@ fun MainScreen(
                             selectedDebtForEdit = debt
                             showDebtDialog = true
                         },
-                        onRefreshVerse = { viewModel.refreshVerse() }
+                        onRefreshVerse = { viewModel.refreshVerse() },
+                        onAddExpense = {
+                            editingTransaction = null
+                            transactionDialogType = "expense"
+                        },
+                        onAddIncome = {
+                            editingTransaction = null
+                            transactionDialogType = "income"
+                        },
+                        onAddTransfer = {
+                            editingTransaction = null
+                            transactionDialogType = "transfer"
+                        }
                     )
                     1 -> TransactionsScreen(
                         state = state,

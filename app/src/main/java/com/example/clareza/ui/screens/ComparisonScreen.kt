@@ -1,6 +1,7 @@
 package com.example.clareza.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -14,19 +15,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.clareza.ui.ClarezaUiState
-import com.example.clareza.ui.theme.AmberPending
-import com.example.clareza.ui.theme.EmeraldDark
-import com.example.clareza.ui.theme.EmeraldPrimary
-import com.example.clareza.ui.theme.IndigoTransfer
-import com.example.clareza.ui.theme.RoseExpense
+import com.example.clareza.ui.theme.*
 import com.example.clareza.util.FinanceUtils
-import java.time.LocalDate
 
 @Composable
 fun ComparisonScreen(
@@ -34,7 +31,7 @@ fun ComparisonScreen(
     onSetBudgetMode: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0: Diagnóstico, 1: Comparativo, 2: Simulador
+    var selectedTab by remember { mutableStateOf(0) } // 0: Diagnóstico, 1: Categorias, 2: Simulador
     var simulatedAmountText by remember { mutableStateOf("") }
 
     val diag = state.diagnosticResult
@@ -46,73 +43,111 @@ fun ComparisonScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Hero Header Card
+        // Hero Header Card (Diagnóstico & Inteligência)
         Surface(
             shape = RoundedCornerShape(24.dp),
-            color = EmeraldDark,
+            shadowElevation = 3.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+            Box(
+                modifier = Modifier
+                    .background(
+                        Brush.linearGradient(
+                            listOf(TealGradientStart, TealGradientEnd)
+                        )
+                    )
+                    .padding(20.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White.copy(alpha = 0.2f),
+                            modifier = Modifier.size(38.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Insights,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "ANÁLISE E INTELIGÊNCIA",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 10.sp,
+                                    letterSpacing = 1.sp
+                                ),
+                                color = Color(0xFF99F6E4)
+                            )
+                            Text(
+                                text = "Diagnóstico Financeiro",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp
+                                ),
+                                color = Color.White
+                            )
+                        }
                     }
-                    Column {
-                        Text(
-                            text = "DIAGNÓSTICO & INTELIGÊNCIA",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black, fontSize = 10.sp),
-                            color = Color(0xFFA7F3D0)
-                        )
-                        Text(
-                            text = "Análise Financeira Avançada",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
-                        )
-                    }
-                }
 
-                Text(
-                    text = "Acompanhe a saúde do seu orçamento, elegibilidade de planos e simulações para decisões conscientes.",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 18.sp),
-                    color = Color.White.copy(alpha = 0.85f)
-                )
+                    Text(
+                        text = "Entenda seus hábitos, descubra oportunidades de economia e teste compras antes de gastar.",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 18.sp),
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
+                }
             }
         }
 
-        // Subtabs
-        TabRow(selectedTabIndex = selectedTab) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = { Text("Diagnóstico", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = { Text("Comparativo", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-            )
-            Tab(
-                selected = selectedTab == 2,
-                onClick = { selectedTab = 2 },
-                text = { Text("Simulador", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
-            )
+        // Subtabs (Pill Segmented Control)
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                listOf(
+                    0 to "Diagnóstico",
+                    1 to "Categorias",
+                    2 to "Simulador"
+                ).forEach { (idx, title) ->
+                    val isSelected = selectedTab == idx
+                    Surface(
+                        onClick = { selectedTab = idx },
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.surface else Color.Transparent,
+                        shadowElevation = if (isSelected) 2.dp else 0.dp,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(vertical = 10.dp)
+                        ) {
+                            Text(
+                                text = title,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 12.sp,
+                                color = if (isSelected) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         if (selectedTab == 0 && diag != null) {
@@ -120,7 +155,8 @@ fun ComparisonScreen(
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shadowElevation = 1.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -132,18 +168,33 @@ fun ComparisonScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "Pontuação de Saúde Financeira",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "${diag.healthScore}/100",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Black,
-                                color = if (diag.healthScore >= 70) EmeraldPrimary else if (diag.healthScore >= 50) AmberPending else RoseExpense
+                        Column {
+                            Text(
+                                text = "Score de Saúde Financeira",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
-                        )
+                            Text(
+                                text = "Avaliação da regra 50/30/20 atual",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (diag.healthScore >= 70) EmeraldContainerLight else if (diag.healthScore >= 50) AmberPendingLight else RoseExpenseLight
+                        ) {
+                            Text(
+                                text = "${diag.healthScore} / 100",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 15.sp
+                                ),
+                                color = if (diag.healthScore >= 70) EmeraldDark else if (diag.healthScore >= 50) Color(0xFF92400E) else Color(0xFF9F1239),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                            )
+                        }
                     }
 
                     LinearProgressIndicator(
@@ -171,7 +222,8 @@ fun ComparisonScreen(
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shadowElevation = 1.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -179,8 +231,8 @@ fun ComparisonScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Recomendação de Modelo",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        text = "Recomendação Personalizada",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
@@ -207,7 +259,8 @@ fun ComparisonScreen(
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shadowElevation = 1.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -215,8 +268,8 @@ fun ComparisonScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Elegibilidade de Modelos",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        text = "Compatibilidade de Modelos",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
@@ -227,7 +280,7 @@ fun ComparisonScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(12.dp),
+                                modifier = Modifier.padding(14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -265,7 +318,8 @@ fun ComparisonScreen(
                 Surface(
                     shape = RoundedCornerShape(24.dp),
                     color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 2.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    shadowElevation = 1.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -278,12 +332,12 @@ fun ComparisonScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Sugestões de Economia",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                text = "Sugestões de Otimização",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                text = "Economia: ${FinanceUtils.formatCurrency(diag.totalPotentialSavings)}",
+                                text = "Potencial: ${FinanceUtils.formatCurrency(diag.totalPotentialSavings)}",
                                 style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                                 color = EmeraldPrimary
                             )
@@ -323,11 +377,12 @@ fun ComparisonScreen(
                 }
             }
         } else if (selectedTab == 1) {
-            // Comparativo de Períodos
+            // Category Breakdown Tab
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shadowElevation = 1.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -350,7 +405,18 @@ fun ComparisonScreen(
                     }
 
                     if (categoryExpenses.isEmpty()) {
-                        Text("Nenhum gasto registrado neste mês.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(30.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Nenhum gasto registrado neste mês.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     } else {
                         val maxExpense = categoryExpenses.maxOf { it.second }
                         categoryExpenses.forEach { (cat, amount) ->
@@ -359,12 +425,15 @@ fun ComparisonScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Text(cat, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                                    Text(FinanceUtils.formatCurrency(amount), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = RoseExpense)
+                                    Text(cat, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text(FinanceUtils.formatCurrency(amount), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = RoseExpense)
                                 }
                                 LinearProgressIndicator(
                                     progress = { if (maxExpense > 0) (amount / maxExpense).toFloat().coerceIn(0f, 1f) else 0f },
-                                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(7.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
                                     color = RoseExpense,
                                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
@@ -374,11 +443,12 @@ fun ComparisonScreen(
                 }
             }
         } else {
-            // Safe Purchase Simulator ("Posso Comprar Isso Hoje?")
+            // Purchase Simulator Tab ("Posso Comprar Isso Hoje?")
             Surface(
                 shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                shadowElevation = 1.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
@@ -391,7 +461,7 @@ fun ComparisonScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Insira o valor da compra que está planejando para avaliar o impacto nas suas finanças:",
+                        text = "Insira o valor da compra que está planejando para calcular o impacto real no seu orçamento:",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -404,7 +474,10 @@ fun ComparisonScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
-                        singleLine = true
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EmeraldPrimary
+                        )
                     )
 
                     val simAmount = simulatedAmountText.replace(",", ".").toDoubleOrNull() ?: 0.0
@@ -417,7 +490,7 @@ fun ComparisonScreen(
                         val isSafe = remaining >= (state.totalExpenses * 0.20) && remaining >= 0
 
                         Surface(
-                            shape = RoundedCornerShape(16.dp),
+                            shape = RoundedCornerShape(18.dp),
                             color = if (isSafe) EmeraldPrimary.copy(alpha = 0.1f) else RoseExpense.copy(alpha = 0.1f),
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -435,7 +508,7 @@ fun ComparisonScreen(
                                         tint = if (isSafe) EmeraldPrimary else RoseExpense
                                     )
                                     Text(
-                                        text = if (isSafe) "Compra Segura e Aprovada" else "Atenção: Risco ao Orçamento",
+                                        text = if (isSafe) "Compra Segura e Aprovada" else "Atenção: Impacto Alto no Orçamento",
                                         fontWeight = FontWeight.Bold,
                                         color = if (isSafe) EmeraldPrimary else RoseExpense
                                     )
@@ -445,7 +518,7 @@ fun ComparisonScreen(
                                     text = if (isSafe) {
                                         "Após esta compra de ${FinanceUtils.formatCurrency(simAmount)}, você ainda manterá ${FinanceUtils.formatCurrency(remaining)} livres em conta."
                                     } else {
-                                        "Esta compra consumirá a maior parte do seu saldo disponível, deixando apenas ${FinanceUtils.formatCurrency(remaining)}. Recomenda-se adiar ou parcelar sem juros."
+                                        "Esta compra consumirá a maior parte do seu saldo disponível, deixando apenas ${FinanceUtils.formatCurrency(remaining)}. Avalie adiar ou negociar desconto à vista."
                                     },
                                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 18.sp),
                                     color = MaterialTheme.colorScheme.onSurface
@@ -465,6 +538,6 @@ fun ComparisonScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(60.dp))
+        Spacer(modifier = Modifier.height(70.dp))
     }
 }
