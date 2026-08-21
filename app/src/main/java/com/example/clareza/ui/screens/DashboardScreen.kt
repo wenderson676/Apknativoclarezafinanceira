@@ -42,6 +42,7 @@ fun DashboardScreen(
     onAddExpense: () -> Unit,
     onAddIncome: () -> Unit,
     onAddTransfer: () -> Unit,
+    onOpenChat: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -258,6 +259,70 @@ fun DashboardScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // AI ASSISTANT HERO BANNER
+        Surface(
+            onClick = onOpenChat,
+            shape = RoundedCornerShape(24.dp),
+            color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.4f)),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = EmeraldPrimary.copy(alpha = 0.15f),
+                    modifier = Modifier.size(46.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("🤖", fontSize = 24.sp)
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Assistente IA Offline",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = EmeraldPrimary.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                "100% Privado",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = EmeraldPrimary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Pergunte sobre seus gastos ou lance despesas em linguagem natural.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = EmeraldPrimary
+                )
             }
         }
 

@@ -24,9 +24,13 @@ import com.example.clareza.data.model.Debt
 import com.example.clareza.data.model.Goal
 import com.example.clareza.data.model.Transaction
 import com.example.clareza.ui.dialogs.*
+import com.example.clareza.ui.screens.AIModelsScreen
+import com.example.clareza.ui.screens.ChatScreen
 import com.example.clareza.ui.screens.ComparisonScreen
 import com.example.clareza.ui.screens.DashboardScreen
 import com.example.clareza.ui.screens.TransactionsScreen
+import com.example.clareza.ui.viewmodel.AIModelsViewModel
+import com.example.clareza.ui.viewmodel.ChatViewModel
 import com.example.clareza.ui.theme.EmeraldPrimary
 import com.example.clareza.ui.theme.RoseExpense
 import com.example.clareza.util.FinanceUtils
@@ -39,9 +43,12 @@ fun MainScreen(
     viewModel: ClarezaViewModel = viewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val chatViewModel: ChatViewModel = viewModel()
+    val aiModelsViewModel: AIModelsViewModel = viewModel()
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
+    var currentScreen by remember { mutableStateOf("main") } // "main", "chat", "models"
     var currentTab by remember { mutableIntStateOf(0) } // 0: Dashboard, 1: Extrato, 2: Análise
 
     // Dialog states
@@ -129,6 +136,27 @@ fun MainScreen(
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
                         // Navigation Items
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.SmartToy, contentDescription = null, tint = EmeraldPrimary) },
+                            label = { Text("Assistente IA Offline", fontSize = 13.sp, fontWeight = FontWeight.Bold) },
+                            selected = currentScreen == "chat",
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                currentScreen = "chat"
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        )
+
+                        NavigationDrawerItem(
+                            icon = { Icon(Icons.Default.Psychology, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            label = { Text("Modelos de IA (GGUF)", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
+                            selected = currentScreen == "models",
+                            onClick = {
+                                scope.launch { drawerState.close() }
+                                currentScreen = "models"
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        )
                         NavigationDrawerItem(
                             icon = { Icon(Icons.Default.Tune, contentDescription = null, tint = EmeraldPrimary) },
                             label = { Text("Modelo de Orçamento (${state.budgetMode})", fontSize = 13.sp, fontWeight = FontWeight.Medium) },
@@ -297,10 +325,13 @@ fun MainScreen(
                     tonalElevation = 8.dp
                 ) {
                     NavigationBarItem(
-                        selected = currentTab == 0,
-                        onClick = { currentTab = 0 },
+                        selected = currentScreen == "main" && currentTab == 0,
+                        onClick = {
+                            currentTab = 0
+                            currentScreen = "main"
+                        },
                         icon = { Icon(Icons.Default.Home, contentDescription = "Início") },
-                        label = { Text("Início", fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text("Início", fontWeight = if (currentScreen == "main" && currentTab == 0) FontWeight.Bold else FontWeight.Normal) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EmeraldPrimary,
                             selectedTextColor = EmeraldPrimary,
@@ -309,10 +340,13 @@ fun MainScreen(
                     )
 
                     NavigationBarItem(
-                        selected = currentTab == 1,
-                        onClick = { currentTab = 1 },
+                        selected = currentScreen == "main" && currentTab == 1,
+                        onClick = {
+                            currentTab = 1
+                            currentScreen = "main"
+                        },
                         icon = { Icon(Icons.Default.ReceiptLong, contentDescription = "Extrato") },
-                        label = { Text("Extrato", fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text("Extrato", fontWeight = if (currentScreen == "main" && currentTab == 1) FontWeight.Bold else FontWeight.Normal) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EmeraldPrimary,
                             selectedTextColor = EmeraldPrimary,
@@ -333,10 +367,13 @@ fun MainScreen(
                     }
 
                     NavigationBarItem(
-                        selected = currentTab == 2,
-                        onClick = { currentTab = 2 },
+                        selected = currentScreen == "main" && currentTab == 2,
+                        onClick = {
+                            currentTab = 2
+                            currentScreen = "main"
+                        },
                         icon = { Icon(Icons.Default.Insights, contentDescription = "Análise") },
-                        label = { Text("Análise", fontWeight = if (currentTab == 2) FontWeight.Bold else FontWeight.Normal) },
+                        label = { Text("Análise", fontWeight = if (currentScreen == "main" && currentTab == 2) FontWeight.Bold else FontWeight.Normal) },
                         colors = NavigationBarItemDefaults.colors(
                             selectedIconColor = EmeraldPrimary,
                             selectedTextColor = EmeraldPrimary,
@@ -347,56 +384,70 @@ fun MainScreen(
             }
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
-                when (currentTab) {
-                    0 -> DashboardScreen(
-                        state = state,
-                        onManageAccounts = { showAccountsDialog = true },
-                        onOpenBudgetModes = { showBudgetModeDialog = true },
-                        onOpenGoalDialog = { goal ->
-                            selectedGoalForEdit = goal
-                            showGoalDialog = true
-                        },
-                        onGoalDeposit = { goal ->
-                            goalActionType = goal to true
-                        },
-                        onGoalWithdraw = { goal ->
-                            goalActionType = goal to false
-                        },
-                        onOpenDebtDialog = { debt ->
-                            selectedDebtForEdit = debt
-                            showDebtDialog = true
-                        },
-                        onRefreshVerse = { viewModel.refreshVerse() },
-                        onAddExpense = {
-                            editingTransaction = null
-                            transactionDialogType = "expense"
-                        },
-                        onAddIncome = {
-                            editingTransaction = null
-                            transactionDialogType = "income"
-                        },
-                        onAddTransfer = {
-                            editingTransaction = null
-                            transactionDialogType = "transfer"
+                when (currentScreen) {
+                    "chat" -> ChatScreen(
+                        chatViewModel = chatViewModel,
+                        clarezaViewModel = viewModel,
+                        onOpenModelManagement = { currentScreen = "models" }
+                    )
+                    "models" -> AIModelsScreen(
+                        viewModel = aiModelsViewModel,
+                        onBack = { currentScreen = "chat" }
+                    )
+                    else -> {
+                        when (currentTab) {
+                            0 -> DashboardScreen(
+                                state = state,
+                                onManageAccounts = { showAccountsDialog = true },
+                                onOpenBudgetModes = { showBudgetModeDialog = true },
+                                onOpenGoalDialog = { goal ->
+                                    selectedGoalForEdit = goal
+                                    showGoalDialog = true
+                                },
+                                onGoalDeposit = { goal ->
+                                    goalActionType = goal to true
+                                },
+                                onGoalWithdraw = { goal ->
+                                    goalActionType = goal to false
+                                },
+                                onOpenDebtDialog = { debt ->
+                                    selectedDebtForEdit = debt
+                                    showDebtDialog = true
+                                },
+                                onRefreshVerse = { viewModel.refreshVerse() },
+                                onAddExpense = {
+                                    editingTransaction = null
+                                    transactionDialogType = "expense"
+                                },
+                                onAddIncome = {
+                                    editingTransaction = null
+                                    transactionDialogType = "income"
+                                },
+                                onAddTransfer = {
+                                    editingTransaction = null
+                                    transactionDialogType = "transfer"
+                                },
+                                onOpenChat = { currentScreen = "chat" }
+                            )
+                            1 -> TransactionsScreen(
+                                state = state,
+                                onEditTransaction = { tx ->
+                                    editingTransaction = tx
+                                    transactionDialogType = tx.type
+                                },
+                                onDeleteTransaction = { id -> viewModel.deleteTransaction(id) },
+                                onTogglePending = { id, currentPending -> viewModel.toggleTransactionPending(id, currentPending) },
+                                onSaveNote = { note ->
+                                    val monthId = state.selectedYearMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"))
+                                    viewModel.saveMonthNote(monthId, note)
+                                }
+                            )
+                            2 -> ComparisonScreen(
+                                state = state,
+                                onSetBudgetMode = { mode -> viewModel.setBudgetMode(mode) }
+                            )
                         }
-                    )
-                    1 -> TransactionsScreen(
-                        state = state,
-                        onEditTransaction = { tx ->
-                            editingTransaction = tx
-                            transactionDialogType = tx.type
-                        },
-                        onDeleteTransaction = { id -> viewModel.deleteTransaction(id) },
-                        onTogglePending = { id, currentPending -> viewModel.toggleTransactionPending(id, currentPending) },
-                        onSaveNote = { note ->
-                            val monthId = state.selectedYearMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"))
-                            viewModel.saveMonthNote(monthId, note)
-                        }
-                    )
-                    2 -> ComparisonScreen(
-                        state = state,
-                        onSetBudgetMode = { mode -> viewModel.setBudgetMode(mode) }
-                    )
+                    }
                 }
             }
         }
