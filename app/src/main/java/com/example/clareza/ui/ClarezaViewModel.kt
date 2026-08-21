@@ -13,6 +13,8 @@ import com.example.clareza.data.model.Transaction
 import com.example.clareza.domain.DebtEngine
 import com.example.clareza.domain.DebtPlan
 import com.example.clareza.domain.FinanceEngine
+import com.example.clareza.domain.FinancialContext
+import com.example.clareza.domain.FinancialContextBuilder
 import com.example.clareza.util.DiagnosticResult
 import com.example.clareza.util.FinanceUtils
 import kotlinx.coroutines.flow.Flow
@@ -79,6 +81,7 @@ data class ClarezaUiState(
     val goals: List<Goal> = emptyList(),
     val debts: List<Debt> = emptyList(),
     val debtPlan: DebtPlan? = null,
+    val financialContext: FinancialContext? = null,
     val monthNote: String = "",
     val customCategories: CustomCategories = CustomCategories(),
     val diagnosticResult: DiagnosticResult? = null,
@@ -173,6 +176,18 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
             totalIncome = totalIncome
         )
 
+        // Financial Context snapshot (pristine data layer for analytical engines & AI)
+        val financialContext = FinancialContextBuilder.build(
+            accountsList = accountsList,
+            allTransactions = allTxList,
+            currentMonthTransactions = currentMonthTxs,
+            goalsList = goalsList,
+            debtsList = debtsList,
+            userName = userName,
+            monthId = monthId,
+            budgetMode = budgetMode
+        )
+
         // Diagnostics
         val diagnostics = FinanceUtils.calculateDiagnostic(
             transactions = currentMonthTxs,
@@ -202,6 +217,7 @@ class ClarezaViewModel(application: Application) : AndroidViewModel(application)
             goals = goalsList,
             debts = debtsList,
             debtPlan = debtPlan,
+            financialContext = financialContext,
             monthNote = note,
             customCategories = customCats,
             diagnosticResult = diagnostics,

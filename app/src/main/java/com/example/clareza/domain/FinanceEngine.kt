@@ -72,7 +72,7 @@ object FinanceEngine {
         budgetMode: String
     ): List<BucketProgress> {
         val modeInfo = FinanceUtils.BUDGET_MODES_INFO[budgetMode] ?: FinanceUtils.BUDGET_MODES_INFO["50-30-20"]!!
-        val referenceIncome = if (totalIncome > 0) totalIncome else maxOf(0.0, liquidBalance)
+        val referenceIncome = if (totalIncome > 0) totalIncome else 0.0
 
         val needsSpent = currentMonthTxs
             .filter { it.type == "expense" && it.bucket == "Necessidades" && !it.isPending }
@@ -88,8 +88,9 @@ object FinanceEngine {
 
         fun makeProgress(name: String, spent: Double, ratio: Double): BucketProgress {
             val limit = referenceIncome * ratio
-            val pct = if (referenceIncome > 0) (spent / referenceIncome) * 100 else 0.0
+            val pct = if (referenceIncome > 0) (spent / referenceIncome) * 100 else if (spent > 0) 100.0 else 0.0
             val status = when {
+                limit <= 0 && spent > 0 -> "danger"
                 limit <= 0 -> "normal"
                 spent > limit -> "danger"
                 spent > limit * 0.85 -> "warning"

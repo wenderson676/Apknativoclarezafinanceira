@@ -9,12 +9,13 @@ data class DebtPlan(
     val totalDebt: Double,
     val monthlyCapacity: Double,
     val totalMonthlyMinimums: Double,
+    val extraPaymentCapacity: Double,
+    val recommendedMonthlyPayment: Double,
     val payoffMonths: Int,
     val highPriorityCount: Int,
     val mediumPriorityCount: Int,
     val lowPriorityCount: Int,
     val sortedDebts: List<Debt>,
-    val recommendedMonthlyPayment: Double,
     val isCapacityRestricted: Boolean
 )
 
@@ -23,7 +24,7 @@ object DebtEngine {
     /**
      * Calcula o plano estratégico de quitação de dívidas (Método Avalanche aprimorado)
      * Respeitando:
-     * 1. A renda real e capacidade de pagamento real (sem assumir 300 reais do nada se a renda for 0)
+     * 1. A renda real e capacidade de pagamento real (sem inventar capacidade se a renda for 0)
      * 2. A soma das parcelas mensais mínimas cadastradas
      * 3. Priorização por urgência legal/essencial (Aluguel/Luz/Pensão/Agiota/Rotativo) e taxa de juros
      */
@@ -33,18 +34,22 @@ object DebtEngine {
         val totalDebt = debtsList.sumOf { it.totalAmount }
         val sumMonthlyPayments = debtsList.sumOf { it.monthlyPayment }
 
-        // Capacidade real de amortização baseada na renda
-        // Se a pessoa tiver renda, recomendamos até 30% da renda ou a soma das parcelas mínimas existentes
+        // Capacidade real de amortização baseada na renda (até 30% da renda da família)
         val capacityFromIncome = if (totalIncome > 0) totalIncome * 0.30 else 0.0
         val effectiveMonthlyCapacity = max(capacityFromIncome, sumMonthlyPayments)
 
         val isRestricted = totalIncome <= 0 && sumMonthlyPayments <= 0
 
-        // Cálculo de meses para quitação com base na capacidade efetiva
+        // Pagamento mensal recomendado:
+        // Se a capacidade for positiva, é a própria capacidade efetiva. Se for restrita/zero, é 0.0.
+        val recommendedPayment = if (isRestricted) 0.0 else effectiveMonthlyCapacity
+        val extraPayment = max(0.0, effectiveMonthlyCapacity - sumMonthlyPayments)
+
+        // Cálculo de meses para quitação com base na capacidade efetiva real
         val payoffMonths = when {
             totalDebt <= 0 -> 0
             effectiveMonthlyCapacity > 0 -> ceil(totalDebt / effectiveMonthlyCapacity).toInt()
-            else -> 0 // Sem renda/capacidade definida
+            else -> 0 // Sem capacidade definida no momento
         }
 
         // Ordenação por prioridade: Máxima (1) > Média (2) > Baixa (3)
@@ -66,12 +71,13 @@ object DebtEngine {
             totalDebt = totalDebt,
             monthlyCapacity = effectiveMonthlyCapacity,
             totalMonthlyMinimums = sumMonthlyPayments,
+            extraPaymentCapacity = extraPayment,
+            recommendedMonthlyPayment = recommendedPayment,
             payoffMonths = payoffMonths,
             highPriorityCount = highCount,
             mediumPriorityCount = medCount,
             lowPriorityCount = lowCount,
             sortedDebts = sortedDebts,
-            recommendedMonthlyPayment = max(effectiveMonthlyCapacity, 50.0),
             isCapacityRestricted = isRestricted
         )
     }
