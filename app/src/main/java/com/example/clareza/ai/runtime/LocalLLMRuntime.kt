@@ -23,6 +23,7 @@ class LocalLLMRuntime(
                 System.loadLibrary("llama_jni")
                 isNativeLibraryLoaded = true
             } catch (e: Throwable) {
+                android.util.Log.e("ClarezaAI", "[LocalLLMRuntime] Failed to load library", e)
                 isNativeLibraryLoaded = false
             }
         }

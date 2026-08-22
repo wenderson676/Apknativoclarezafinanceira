@@ -1,3 +1,5 @@
 # ninja log v5
 0	613	1787357755885820755	CMakeFiles/llama_jni.dir/llama_jni_stub.cpp.o	95e8f10b63dd49df
 615	659	1787357755931678371	/app/applet/app/build/intermediates/cxx/Debug/3i271g6b/obj/x86_64/libllama_jni.so	f284482b3619a1de
+21	671	1787358176340803715	CMakeFiles/llama_jni.dir/llama_jni_stub.cpp.o	95e8f10b63dd49df
+671	717	1787358176387212099	/app/applet/app/build/intermediates/cxx/Debug/3i271g6b/obj/x86_64/libllama_jni.so	f284482b3619a1de
