@@ -1,0 +1,27 @@
+{
+  "buildFiles": [
+    "/app/applet/app/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/opt/android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/app/applet/app/.cxx/Debug/3i271g6b/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/opt/android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/app/applet/app/.cxx/Debug/3i271g6b/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "llama_jni::@6890427a1f51a3e7e1df": {
+      "artifactName": "llama_jni",
+      "abi": "x86_64",
+      "output": "/app/applet/app/build/intermediates/cxx/Debug/3i271g6b/obj/x86_64/libllama_jni.so",
+      "runtimeFiles": []
+    }
+  }
+}

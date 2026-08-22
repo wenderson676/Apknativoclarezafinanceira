@@ -1,0 +1,21 @@
+                        -H/app/applet/app/src/main/cpp
+-DCMAKE_SYSTEM_NAME=Android
+-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+-DCMAKE_SYSTEM_VERSION=26
+-DANDROID_PLATFORM=android-26
+-DANDROID_ABI=x86_64
+-DCMAKE_ANDROID_ARCH_ABI=x86_64
+-DANDROID_NDK=/opt/android/sdk/ndk/26.1.10909125
+-DCMAKE_ANDROID_NDK=/opt/android/sdk/ndk/26.1.10909125
+-DCMAKE_TOOLCHAIN_FILE=/opt/android/sdk/ndk/26.1.10909125/build/cmake/android.toolchain.cmake
+-DCMAKE_MAKE_PROGRAM=/opt/android/sdk/cmake/3.22.1/bin/ninja
+-DCMAKE_CXX_FLAGS=-std=c++17
+-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=/app/applet/app/build/intermediates/cxx/Debug/3i271g6b/obj/x86_64
+-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=/app/applet/app/build/intermediates/cxx/Debug/3i271g6b/obj/x86_64
+-DCMAKE_BUILD_TYPE=Debug
+-B/app/applet/app/.cxx/Debug/3i271g6b/x86_64
+-GNinja
+-DGGML_OPENMP=OFF
+-DGGML_NATIVE=OFF
+                        Build command args: []
+                        Version: 2
